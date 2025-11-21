@@ -1,0 +1,80 @@
+{
+  "name": "@pdfstudio/pdfstudio",
+  "version": "0.1.1",
+  "description": "Modern PDF generation library for Node.js with native charts and advanced graphics",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "example": "ts-node examples/simple-chart.ts",
+    "examples": "mkdir -p examples-output && ts-node examples/all-features.ts",
+    "prepublishOnly": "npm run build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "pdf",
+    "pdf-generation",
+    "pdf-library",
+    "nodejs",
+    "typescript",
+    "charts",
+    "bar-chart",
+    "pie-chart",
+    "line-chart",
+    "data-visualization",
+    "tables",
+    "forms",
+    "qrcode",
+    "vector-graphics",
+    "annotations",
+    "watermark",
+    "encryption",
+    "invoice",
+    "report",
+    "certificate",
+    "gradients",
+    "multi-page",
+    "pdf-forms",
+    "pdf-charts",
+    "document-generation"
+  ],
+  "author": "ideas2code <hello@ideas2code.dev> (https://github.com/pdfstudio-dev)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pdfstudio-dev/pdfstudio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pdfstudio-dev/pdfstudio/issues"
+  },
+  "homepage": "https://github.com/pdfstudio-dev/pdfstudio#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@types/fontkit": "^2.0.8",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.0.0",
+    "@types/pako": "^2.0.4",
+    "@types/qrcode": "^1.5.6",
+    "@types/sharp": "^0.31.1",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "fontkit": "^2.0.4",
+    "pako": "^2.1.0",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.34.5"
+  }
+}
