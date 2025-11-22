@@ -1,9 +1,9 @@
 import * as fontkit from 'fontkit'
-import * as fs from 'fs'
 import * as pako from 'pako'
 import { CustomFont } from '../types'
 import { FontError, CompressionError } from '../errors'
 import { logger } from '../utils/logger'
+import { PlatformFactory } from '../platform'
 
 /**
  * Font information for PDF embedding
@@ -25,24 +25,29 @@ export class FontManager {
 
   /**
    * Load a custom font
+   * Now supports file paths, URLs, File objects, and Buffers
    */
-  loadFont(customFont: CustomFont): FontInfo {
+  async loadFont(customFont: CustomFont): Promise<FontInfo> {
     // Check if already loaded
     if (this.loadedFonts.has(customFont.name)) {
       return this.loadedFonts.get(customFont.name)!
     }
 
+    const fs = PlatformFactory.getFileSystem()
+
     // Load font data
     let fontData: Buffer
     if (Buffer.isBuffer(customFont.source)) {
       fontData = customFont.source
-    } else if (typeof customFont.source === 'string') {
-      if (!fs.existsSync(customFont.source)) {
+    } else if (typeof customFont.source === 'string' || (typeof customFont.source === 'object' && 'name' in customFont.source && 'size' in customFont.source)) {
+      // In browser, existsSync always returns false
+      // In Node.js, check if file exists
+      if (!fs.isBrowser() && typeof customFont.source === 'string' && !fs.existsSync(customFont.source)) {
         throw new Error(`Font file not found: ${customFont.source}`)
       }
-      fontData = fs.readFileSync(customFont.source)
+      fontData = await fs.readFile(customFont.source)
     } else {
-      throw new Error('Invalid font source: must be a file path or Buffer')
+      throw new Error('Invalid font source: must be a file path, URL, File object, or Buffer')
     }
 
     // Parse font with fontkit

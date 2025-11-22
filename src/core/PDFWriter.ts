@@ -1,4 +1,3 @@
-import * as fs from 'fs'
 import * as pako from 'pako'
 import * as crypto from 'crypto'
 import { PageNumberOptions, PageNumberFormat, PDFEncoding, PDFBaseFont, FontOptions, DocumentInfo, PDFSecurityOptions, ImageInfo, ImageOptions, TextOptions, TextAlign, Color, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, BezierCurve, Point, HeaderFooterOptions, HeaderOptions, FooterOptions, HeaderFooterContent, PageRule, Gradient, LinearGradientOptions, RadialGradientOptions, ColorStop, TilingPatternOptions, BookmarkOptions, BookmarkDestination, FormOptions, FormField, SignatureFieldOptions, PDFAOptions, Annotation, Watermark, Link, PageRotation, ExtendedMetadata, CompressionOptions, FileAttachment, FileAttachmentAnnotation, CustomFont, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, QRCodeOptions } from '../types'
@@ -12,6 +11,7 @@ import { QRCodeGenerator } from '../qrcode/QRCodeGenerator'
 import { CompressionError } from '../errors'
 import { logger } from '../utils/logger'
 import { getConfig } from '../config/defaults'
+import { PlatformFactory } from '../platform'
 import {
   ImageManager,
   GradientManager,
@@ -212,7 +212,9 @@ export class PDFWriter {
   /**
    * Escape special characters and encode accented characters for PDF
    */
-  private escapePDFString(text: string): string {
+  private escapePDFString(text: string | undefined): string {
+    if (!text) return ''
+
     let result = ''
 
     for (let i = 0; i < text.length; i++) {
@@ -385,9 +387,9 @@ export class PDFWriter {
   /**
    * Register a custom TrueType/OpenType font
    */
-  registerCustomFont(customFont: CustomFont): void {
+  async registerCustomFont(customFont: CustomFont): Promise<void> {
     // Load font using FontManager
-    const fontInfo = this.fontManager.loadFont(customFont)
+    const fontInfo = await this.fontManager.loadFont(customFont)
 
     // Register font with next available ID
     if (!this.customFonts.has(customFont.name)) {
@@ -1677,10 +1679,13 @@ export class PDFWriter {
 
   /**
    * Embed an image and return its name for use in content streams
+   * Now supports async image loading for browser compatibility
    */
-  embedImage(source: string | Buffer): string {
+  async embedImage(source: string | File | Buffer): Promise<string> {
     // Create a hash key for the image to avoid duplicates
-    const key = typeof source === 'string' ? source : source.toString('base64').substring(0, 100)
+    const key = typeof source === 'string'
+      ? source
+      : (source instanceof File ? source.name : source.toString('base64').substring(0, 100))
 
     // Check if image already embedded
     if (this.imageManager.hasImage(key)) {
@@ -1688,8 +1693,8 @@ export class PDFWriter {
       return `Im${img.id}`
     }
 
-    // Parse the image
-    const imageInfo = ImageParser.load(source)
+    // Parse the image (async now)
+    const imageInfo = await ImageParser.load(source)
 
     // Register the image
     const imageId = this.imageManager.registerImage(key, imageInfo)
@@ -1772,8 +1777,8 @@ export class PDFWriter {
     // Generate QR code as PNG buffer
     const qrBuffer = await QRCodeGenerator.generate(options)
 
-    // Parse the QR code image
-    const imageInfo = ImageParser.load(qrBuffer)
+    // Parse the QR code image (async now)
+    const imageInfo = await ImageParser.load(qrBuffer)
 
     // CRITICAL: QR codes must NOT have interpolation (causes blurriness)
     imageInfo.interpolate = false
@@ -2217,14 +2222,15 @@ export class PDFWriter {
   /**
    * Render watermarks on pages
    */
-  private renderWatermarks(): void {
+  private async renderWatermarks(): Promise<void> {
     if (this.watermarkManager.getWatermarkCount() === 0) {
       return
     }
 
     const originalPageIndex = this.currentPageIndex
+    const allWatermarks = this.watermarkManager.getAllWatermarks()
 
-    this.watermarkManager.getAllWatermarks().forEach(watermark => {
+    for (const watermark of allWatermarks) {
       // Determine which pages to apply watermark
       const pages = watermark.pages || 'all'
       const targetPages = pages === 'all'
@@ -2237,7 +2243,7 @@ export class PDFWriter {
       const position = watermark.position || 'center'
       const layer = watermark.layer || 'background'
 
-      targetPages.forEach(pageIndex => {
+      for (const pageIndex of targetPages) {
         if (pageIndex < 0 || pageIndex >= this.pages.length) {
           return // Skip invalid page indices
         }
@@ -2338,7 +2344,7 @@ export class PDFWriter {
           // Load image if not already loaded
           if (!this.imageManager.hasImage(imageKey)) {
             try {
-              const imageInfo = ImageParser.load(watermark.source)
+              const imageInfo = await ImageParser.load(watermark.source)
               this.imageManager.registerImage(imageKey, imageInfo)
             } catch (error) {
               logger.error(
@@ -2422,8 +2428,8 @@ export class PDFWriter {
             commands.forEach(cmd => this.addContent(cmd))
           }
         }
-      })
-    })
+      }
+    }
 
     // Restore original page index
     this.currentPageIndex = originalPageIndex
@@ -2834,9 +2840,9 @@ export class PDFWriter {
   /**
    * Generate the final PDF as a Buffer
    */
-  generate(): Buffer {
+  async generate(): Promise<Buffer> {
     // Render watermarks, page numbers, headers, and footers before generating PDF
-    this.renderWatermarks()
+    await this.renderWatermarks()
     this.renderPageNumbers()
     this.renderHeaders()
     this.renderFooters()
@@ -4411,14 +4417,17 @@ endstream`
     // Create file attachment objects
     // Document-level attachments
     if (this.attachments.length > 0 && namesTreeId) {
-      this.attachments.forEach((attachment, index) => {
+      const fs = PlatformFactory.getFileSystem()
+
+      for (let index = 0; index < this.attachments.length; index++) {
+        const attachment = this.attachments[index]
         const embeddedFileId = attachmentEmbeddedFileIds[index]
         const fileSpecId = attachmentFileSpecIds[index]
 
-        // Load file data
+        // Load file data (async now)
         let fileData: Buffer
         if (typeof attachment.file === 'string') {
-          fileData = fs.readFileSync(attachment.file)
+          fileData = await fs.readFile(attachment.file)
         } else {
           fileData = attachment.file
         }
@@ -4478,7 +4487,7 @@ endstream`
           id: fileSpecId,
           data: fileSpecData
         })
-      })
+      }
 
       // Create Names dictionary
       const namesArray = this.attachments.map((attachment, index) => {
@@ -4502,16 +4511,19 @@ endstream`
     // Page-level file attachment annotations
     if (this.annotationManager.getAllAttachmentAnnotations().length > 0) {
       const attachmentOffset = this.attachments.length
+      const fs = PlatformFactory.getFileSystem()
+      const attachmentAnnotations = this.annotationManager.getAllAttachmentAnnotations()
 
-      this.annotationManager.getAllAttachmentAnnotations().forEach((annotation, index) => {
+      for (let index = 0; index < attachmentAnnotations.length; index++) {
+        const annotation = attachmentAnnotations[index]
         const annotationId = attachmentAnnotationIds[index]
         const embeddedFileId = attachmentEmbeddedFileIds[attachmentOffset + index]
         const fileSpecId = attachmentFileSpecIds[attachmentOffset + index]
 
-        // Load file data
+        // Load file data (async now)
         let fileData: Buffer
         if (typeof annotation.file === 'string') {
-          fileData = fs.readFileSync(annotation.file)
+          fileData = await fs.readFile(annotation.file)
         } else {
           fileData = annotation.file
         }
@@ -4593,7 +4605,7 @@ endstream`
           pageData.linkAnnots = []
         }
         pageData.linkAnnots.push(annotationId)
-      })
+      }
     }
 
     // Create AcroForm and field objects
@@ -5121,10 +5133,11 @@ endstream`
   }
 
   /**
-   * Save PDF to file
+   * Save PDF to file (Node.js) or trigger download (Browser)
    */
-  save(filepath: string): void {
-    const buffer = this.generate()
-    fs.writeFileSync(filepath, buffer)
+  async save(filepath: string): Promise<void> {
+    const buffer = await this.generate()
+    const fs = PlatformFactory.getFileSystem()
+    await fs.writeFile(filepath, buffer)
   }
 }

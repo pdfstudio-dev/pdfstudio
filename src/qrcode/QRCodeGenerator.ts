@@ -1,14 +1,14 @@
 import * as QRCode from 'qrcode'
-import * as fs from 'fs'
-import sharp from 'sharp'
 import { QRCodeOptions, QRCodeData, QRCodeLogoOptions } from '../types'
 import { ImageParser } from '../images/ImageParser'
 import { ImageError } from '../errors'
 import { logger } from '../utils/logger'
+import { PlatformFactory } from '../platform'
 
 /**
  * QRCodeGenerator - Generates QR codes with customization options
  * Supports URLs, vCards, WiFi credentials, emails, and more
+ * Now compatible with both Node.js and Browser environments
  */
 export class QRCodeGenerator {
   /**
@@ -23,15 +23,15 @@ export class QRCodeGenerator {
     // We generate at a scale where each module is exactly N pixels for perfect sharpness
     const scale = 10 // Each QR module will be 10x10 pixels (crisp rendering)
 
-    const qrOptions: QRCode.QRCodeToBufferOptions = {
+    const qrOptions: any = {
       errorCorrectionLevel: options.errorCorrectionLevel || 'M',
-      type: 'png',
       margin: options.margin ?? 4,
       color: {
         dark: options.foregroundColor || '#000000',
         light: options.backgroundColor || '#FFFFFF'
       },
-      scale: scale // Use scale instead of width for pixel-perfect modules
+      scale: scale, // Use scale instead of width for pixel-perfect modules
+      width: (options.size || 150) // Fallback width
     }
 
     // Add version if specified
@@ -47,7 +47,25 @@ export class QRCodeGenerator {
     // Generate base QR code
     let qrBuffer: Buffer
     try {
-      qrBuffer = await QRCode.toBuffer(qrText, qrOptions)
+      // Detect environment: Node.js has toBuffer, browser has toDataURL
+      const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined'
+
+      if (isBrowser) {
+        // Browser: use toDataURL and convert to buffer
+        const dataUrl = await (QRCode.toDataURL(qrText, qrOptions) as unknown as Promise<string>)
+        // Convert data URL to buffer
+        const base64Data = dataUrl.split(',')[1]
+        const binaryString = atob(base64Data)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+        qrBuffer = Buffer.from(bytes)
+      } else {
+        // Node.js: use toBuffer
+        qrOptions.type = 'png'
+        qrBuffer = await (QRCode.toBuffer(qrText, qrOptions) as unknown as Promise<Buffer>)
+      }
     } catch (error) {
       throw new ImageError(
         `Failed to generate QR code: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -194,16 +212,19 @@ export class QRCodeGenerator {
     qrSize: number
   ): Promise<Buffer> {
     try {
+      const imageProcessor = PlatformFactory.getImageProcessor()
+      const fs = PlatformFactory.getFileSystem()
+
       // Load QR code image
-      const qrImage = sharp(qrBuffer)
+      const qrImage = imageProcessor.load(qrBuffer)
       const qrMetadata = await qrImage.metadata()
       const qrWidth = qrMetadata.width || 400
       const qrHeight = qrMetadata.height || 400
 
-      // Load logo image (from file path or buffer)
+      // Load logo image (from file path, URL, File, or buffer)
       let logoBuffer: Buffer
-      if (typeof logoOptions.source === 'string') {
-        logoBuffer = fs.readFileSync(logoOptions.source)
+      if (typeof logoOptions.source === 'string' || logoOptions.source instanceof File) {
+        logoBuffer = await fs.readFile(logoOptions.source)
       } else {
         logoBuffer = logoOptions.source
       }
@@ -216,10 +237,11 @@ export class QRCodeGenerator {
       const logoSize = Math.floor(qrWidth * logoSizePercent)
 
       // Resize logo
-      let logoProcessed = sharp(logoBuffer).resize(logoSize, logoSize, {
-        fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 }
-      })
+      let logoProcessed = imageProcessor.load(logoBuffer)
+        .resize(logoSize, logoSize, {
+          fit: 'contain',
+          background: { r: 255, g: 255, b: 255, alpha: 0 }
+        })
 
       let logoImageBuffer = await logoProcessed.png().toBuffer()
 
@@ -235,9 +257,12 @@ export class QRCodeGenerator {
         )
 
         // Apply mask to logo
-        logoImageBuffer = await sharp(logoImageBuffer)
+        const maskBuffer = await imageProcessor.load(mask).png().toBuffer()
+        logoImageBuffer = await imageProcessor.load(logoImageBuffer)
           .composite([{
-            input: await sharp(mask).png().toBuffer(),
+            input: maskBuffer,
+            top: 0,
+            left: 0,
             blend: 'dest-in'
           }])
           .png()
@@ -252,13 +277,11 @@ export class QRCodeGenerator {
       const bgColor = logoOptions.backgroundColor || '#FFFFFF'
       const bgRgb = this.hexToRgb(bgColor)
 
-      const logoBackground = await sharp({
-        create: {
-          width: bgSize,
-          height: bgSize,
-          channels: 4,
-          background: { r: bgRgb.r, g: bgRgb.g, b: bgRgb.b, alpha: 1 }
-        }
+      const logoBackground = await imageProcessor.create({
+        width: bgSize,
+        height: bgSize,
+        channels: 4,
+        background: { r: bgRgb.r, g: bgRgb.g, b: bgRgb.b, alpha: 1 }
       })
       .composite([{
         input: logoImageBuffer,

@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDFStudio Browser - Complete Test Suite</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      color: #764ba2;
+      margin-top: 40px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .examples {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+      width: 100%;
+      text-align: left;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .info {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .info h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 PDFStudio Browser - Complete Test Suite</h1>
+    <p class="subtitle">Comprehensive test of ALL PDFStudio features in the browser</p>
+
+    <div class="info">
+      <h3>✨ Testing All Features</h3>
+      <p>This page tests every single feature of PDFStudio to ensure browser compatibility. Click any button to generate and download a PDF.</p>
+    </div>
+
+    <!-- TEXT FEATURES -->
+    <h2>📝 Text Features</h2>
+    <div class="examples">
+      <button onclick="testTextBasic()">Basic Text</button>
+      <button onclick="testTextFonts()">Different Fonts</button>
+      <button onclick="testTextSizes()">Different Sizes</button>
+      <button onclick="testTextColors()">Text Colors</button>
+      <button onclick="testTextAlignment()">Text Alignment</button>
+    </div>
+
+    <!-- SHAPES -->
+    <h2>⬜ Shapes & Lines</h2>
+    <div class="examples">
+      <button onclick="testRectangles()">Rectangles</button>
+      <button onclick="testCircles()">Circles</button>
+      <button onclick="testLines()">Lines</button>
+      <button onclick="testPolygons()">Polygons</button>
+      <button onclick="testPaths()">Custom Paths</button>
+    </div>
+
+    <!-- COLORS -->
+    <h2>🎨 Colors & Styles</h2>
+    <div class="examples">
+      <button onclick="testFillColors()">Fill Colors (RGB)</button>
+      <button onclick="testStrokeColors()">Stroke Colors</button>
+      <button onclick="testLineWidths()">Line Widths</button>
+      <button onclick="testOpacity()">Opacity/Transparency</button>
+    </div>
+
+    <!-- IMAGES -->
+    <h2>🖼️ Images</h2>
+    <div class="examples">
+      <button onclick="testImageBasic()">Basic Image</button>
+      <button onclick="testImageSizes()">Image Scaling</button>
+      <button onclick="testImagePositions()">Image Positioning</button>
+      <button onclick="testMultipleImages()">Multiple Images</button>
+    </div>
+
+    <!-- TABLES -->
+    <h2>📊 Tables</h2>
+    <div class="examples">
+      <button onclick="testTableBasic()">Basic Table</button>
+      <button onclick="testTableStyled()">Styled Table</button>
+      <button onclick="testTableComplex()">Complex Table</button>
+      <button onclick="testTableLarge()">Large Table</button>
+    </div>
+
+    <!-- CHARTS -->
+    <h2>📈 Charts</h2>
+    <div class="examples">
+      <button onclick="testBarChart()">Bar Chart</button>
+      <button onclick="testLineChart()">Line Chart</button>
+      <button onclick="testPieChart()">Pie Chart</button>
+      <button onclick="testMultipleCharts()">Multiple Charts</button>
+    </div>
+
+    <!-- QR CODES -->
+    <h2>🔳 QR Codes</h2>
+    <div class="examples">
+      <button onclick="testQRURL()">QR Code - URL</button>
+      <button onclick="testQRText()">QR Code - Text</button>
+      <button onclick="testQREmail()">QR Code - Email</button>
+      <button onclick="testQRPhone()">QR Code - Phone</button>
+      <button onclick="testQRWiFi()">QR Code - WiFi</button>
+      <button onclick="testQRVCard()">QR Code - vCard</button>
+    </div>
+
+    <!-- WATERMARKS -->
+    <h2>💧 Watermarks</h2>
+    <div class="examples">
+      <button onclick="testWatermarkText()">Text Watermark</button>
+      <button onclick="testWatermarkImage()">Image Watermark</button>
+      <button onclick="testWatermarkRotated()">Rotated Watermark</button>
+      <button onclick="testWatermarkTransparent()">Transparent Watermark</button>
+    </div>
+
+    <!-- MULTI-PAGE -->
+    <h2>📄 Multi-Page & Layout</h2>
+    <div class="examples">
+      <button onclick="testMultiplePagesBasic()">Multiple Pages</button>
+      <button onclick="testHeadersFooters()">Headers & Footers</button>
+      <button onclick="testPageNumbers()">Page Numbers</button>
+      <button onclick="testMargins()">Custom Margins</button>
+      <button onclick="testPageBreaks()">Auto Page Breaks</button>
+    </div>
+
+    <!-- TRANSFORMATIONS -->
+    <h2>🔄 Transformations</h2>
+    <div class="examples">
+      <button onclick="testRotation()">Rotation</button>
+      <button onclick="testScaling()">Scaling</button>
+      <button onclick="testTranslation()">Translation</button>
+    </div>
+
+    <!-- ADVANCED -->
+    <h2>⚡ Advanced Features</h2>
+    <div class="examples">
+      <button onclick="testLinks()">Hyperlinks</button>
+      <button onclick="testMetadata()">Document Metadata</button>
+      <button onclick="testEncryption()">Encryption/Security <span style="font-size: 10px; opacity: 0.8;">🔐 user: user123 | owner: owner456</span></button>
+      <button onclick="testAttachments()">File Attachments</button>
+    </div>
+
+    <!-- REAL-WORLD -->
+    <h2>🌟 Real-World Examples</h2>
+    <div class="examples">
+      <button onclick="generateInvoice()">Invoice</button>
+      <button onclick="generateReport()">Business Report</button>
+      <button onclick="generateCertificate()">Certificate</button>
+      <button onclick="generateFlyer()">Marketing Flyer</button>
+      <button onclick="generateResume()">Resume/CV</button>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <!-- Load PDFStudio library -->
+  <script src="../../dist/pdfstudio.standalone.js"></script>
+
+  <script>
+    // Helper to show status messages
+    function showStatus(message, isError = false) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.className = 'status ' + (isError ? 'error' : 'success');
+
+      if (!isError) {
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    // Helper to create demo image
+    async function createDemoImage(width, height, text) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(text, width / 2, height / 2);
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const arrayBuffer = await blob.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    }
+
+    // ========== TEXT FEATURES ==========
+
+    async function testTextBasic() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Text Basic Test' });
+
+        doc.text('Basic Text Test', 50, 750, 24, 'Helvetica-Bold');
+        doc.text('This is a simple text line', 50, 720, 12);
+        doc.text('Different line with more content to display', 50, 700, 12);
+
+        doc.text('X: 50, Y: 680', 50, 680, 10, 'Courier');
+        doc.text('X: 200, Y: 660', 200, 660, 10, 'Courier');
+        doc.text('X: 350, Y: 640', 350, 640, 10, 'Courier');
+
+        await doc.save('test-text-basic.pdf');
+        showStatus('✅ Basic text test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTextFonts() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Text Fonts Test' });
+
+        doc.text('Font Test - PDFStudio', 50, 750, 20, 'Helvetica-Bold');
+
+        const fonts = [
+          'Helvetica',
+          'Helvetica-Bold',
+          'Helvetica-Oblique',
+          'Helvetica-BoldOblique',
+          'Times-Roman',
+          'Times-Bold',
+          'Times-Italic',
+          'Times-BoldItalic',
+          'Courier',
+          'Courier-Bold',
+          'Courier-Oblique',
+          'Courier-BoldOblique'
+        ];
+
+        let y = 700;
+        fonts.forEach(font => {
+          doc.text(`This is ${font}`, 50, y, 12, font);
+          y -= 25;
+        });
+
+        await doc.save('test-text-fonts.pdf');
+        showStatus('✅ Font test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTextSizes() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Text Sizes Test' });
+
+        doc.text('Text Size Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const sizes = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40];
+        let y = 700;
+
+        sizes.forEach(size => {
+          doc.text(`Size ${size}pt`, 50, y, size, 'Helvetica');
+          y -= (size + 10);
+        });
+
+        await doc.save('test-text-sizes.pdf');
+        showStatus('✅ Text size test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTextColors() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Text Colors Test' });
+
+        doc.text('Text Color Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const colors = [
+          { r: 1, g: 0, b: 0, name: 'Red' },
+          { r: 0, g: 1, b: 0, name: 'Green' },
+          { r: 0, g: 0, b: 1, name: 'Blue' },
+          { r: 1, g: 1, b: 0, name: 'Yellow' },
+          { r: 1, g: 0, b: 1, name: 'Magenta' },
+          { r: 0, g: 1, b: 1, name: 'Cyan' },
+          { r: 0.5, g: 0, b: 0.5, name: 'Purple' },
+          { r: 1, g: 0.5, b: 0, name: 'Orange' },
+          { r: 0, g: 0, b: 0, name: 'Black' },
+          { r: 0.5, g: 0.5, b: 0.5, name: 'Gray' }
+        ];
+
+        let y = 700;
+        colors.forEach(color => {
+          doc.setFillColor(color.r, color.g, color.b);
+          doc.text(`This text is ${color.name}`, 50, y, 16, 'Helvetica-Bold');
+          y -= 30;
+        });
+
+        await doc.save('test-text-colors.pdf');
+        showStatus('✅ Text color test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTextAlignment() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Text Alignment Test' });
+
+        doc.text('Text Alignment Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Left aligned
+        doc.setFillColor(0, 0, 0);
+        doc.text('Left Aligned Text (Default)', 50, 700, 14, 'Helvetica-Bold');
+        doc.text('This is left aligned text at X=50', 50, 680, 12);
+
+        // Center reference line
+        doc.setStrokeColor(0.8, 0.8, 0.8);
+        doc.setLineWidth(1);
+        doc.moveTo(306, 650);
+        doc.lineTo(306, 600);
+        doc.stroke();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Center Aligned Text', 306, 650, 14, 'Helvetica-Bold');
+        doc.text('This should be centered at X=306 (page center)', 306, 630, 12);
+
+        // Right reference line
+        doc.setStrokeColor(0.8, 0.8, 0.8);
+        doc.moveTo(550, 580);
+        doc.lineTo(550, 530);
+        doc.stroke();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Right Aligned Text', 550, 580, 14, 'Helvetica-Bold');
+        doc.text('This should be right aligned at X=550', 550, 560, 12);
+
+        await doc.save('test-text-alignment.pdf');
+        showStatus('✅ Text alignment test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== SHAPES ==========
+
+    async function testRectangles() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Rectangles Test' });
+
+        doc.text('Rectangle Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Filled rectangles
+        doc.setFillColor(1, 0, 0);
+        doc.rect(50, 650, 100, 60);
+        doc.fill();
+
+        doc.setFillColor(0, 1, 0);
+        doc.rect(170, 650, 100, 60);
+        doc.fill();
+
+        doc.setFillColor(0, 0, 1);
+        doc.rect(290, 650, 100, 60);
+        doc.fill();
+
+        // Stroked rectangles
+        doc.setStrokeColor(1, 0, 0);
+        doc.setLineWidth(2);
+        doc.rect(50, 550, 100, 60);
+        doc.stroke();
+
+        doc.setStrokeColor(0, 1, 0);
+        doc.setLineWidth(4);
+        doc.rect(170, 550, 100, 60);
+        doc.stroke();
+
+        doc.setStrokeColor(0, 0, 1);
+        doc.setLineWidth(6);
+        doc.rect(290, 550, 100, 60);
+        doc.stroke();
+
+        // Filled and stroked
+        doc.setFillColor(1, 1, 0);
+        doc.setStrokeColor(0, 0, 0);
+        doc.setLineWidth(3);
+        doc.rect(50, 450, 100, 60);
+        doc.fillAndStroke();
+
+        doc.setFillColor(1, 0, 1);
+        doc.rect(170, 450, 100, 60);
+        doc.fillAndStroke();
+
+        doc.setFillColor(0, 1, 1);
+        doc.rect(290, 450, 100, 60);
+        doc.fillAndStroke();
+
+        await doc.save('test-rectangles.pdf');
+        showStatus('✅ Rectangle test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testCircles() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Circles Test' });
+
+        doc.text('Circle Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Filled circles
+        doc.setFillColor(1, 0, 0);
+        doc.circle({ x: 100, y: 650, radius: 40 });
+        doc.fill();
+
+        doc.setFillColor(0, 1, 0);
+        doc.circle({ x: 220, y: 650, radius: 40 });
+        doc.fill();
+
+        doc.setFillColor(0, 0, 1);
+        doc.circle({ x: 340, y: 650, radius: 40 });
+        doc.fill();
+
+        // Stroked circles
+        doc.setStrokeColor(1, 0, 0);
+        doc.setLineWidth(2);
+        doc.circle({ x: 100, y: 520, radius: 40 });
+        doc.stroke();
+
+        doc.setStrokeColor(0, 1, 0);
+        doc.setLineWidth(4);
+        doc.circle({ x: 220, y: 520, radius: 40 });
+        doc.stroke();
+
+        doc.setStrokeColor(0, 0, 1);
+        doc.setLineWidth(6);
+        doc.circle({ x: 340, y: 520, radius: 40 });
+        doc.stroke();
+
+        // Different sizes
+        const sizes = [20, 30, 40, 50];
+        let x = 100;
+        doc.setFillColor(0.4, 0.2, 0.8);
+        sizes.forEach(size => {
+          doc.circle({ x: x, y: 380, radius: size });
+          doc.fill();
+          x += (size * 2 + 20);
+        });
+
+        await doc.save('test-circles.pdf');
+        showStatus('✅ Circle test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testLines() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Lines Test' });
+
+        doc.text('Line Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Different widths
+        const widths = [1, 2, 4, 6, 8, 10];
+        let y = 700;
+        widths.forEach(width => {
+          doc.setLineWidth(width);
+          doc.setStrokeColor(0, 0, 0);
+          doc.moveTo(50, y);
+          doc.lineTo(500, y);
+          doc.stroke();
+          doc.setFillColor(0, 0, 0);
+          doc.text(`Width: ${width}`, 510, y - 5, 10);
+          y -= 30;
+        });
+
+        // Different colors
+        const colors = [
+          { r: 1, g: 0, b: 0 },
+          { r: 0, g: 1, b: 0 },
+          { r: 0, g: 0, b: 1 },
+          { r: 1, g: 1, b: 0 },
+          { r: 1, g: 0, b: 1 }
+        ];
+        y = 450;
+        doc.setLineWidth(4);
+        colors.forEach(color => {
+          doc.setStrokeColor(color.r, color.g, color.b);
+          doc.moveTo(50, y);
+          doc.lineTo(500, y);
+          doc.stroke();
+          y -= 25;
+        });
+
+        // Diagonal lines
+        doc.setStrokeColor(0, 0, 0);
+        doc.setLineWidth(2);
+        doc.moveTo(50, 250);
+        doc.lineTo(200, 150);
+        doc.stroke();
+        doc.moveTo(250, 250);
+        doc.lineTo(250, 150);
+        doc.stroke();
+        doc.moveTo(300, 250);
+        doc.lineTo(450, 150);
+        doc.stroke();
+
+        await doc.save('test-lines.pdf');
+        showStatus('✅ Line test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testPolygons() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Polygons Test' });
+
+        doc.text('Polygon Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Regular polygons using polygon() method', 50, 730, 10);
+
+        // Regular Triangle (3 sides)
+        doc.setFillColor(1, 0, 0);
+        doc.polygon({ x: 100, y: 650, radius: 40, sides: 3 });
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Triangle', 75, 580, 10);
+
+        // Regular Pentagon (5 sides)
+        doc.setFillColor(0, 1, 0);
+        doc.polygon({ x: 250, y: 650, radius: 40, sides: 5 });
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Pentagon', 220, 580, 10);
+
+        // Regular Hexagon (6 sides)
+        doc.setFillColor(0, 0, 1);
+        doc.polygon({ x: 400, y: 650, radius: 40, sides: 6 });
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Hexagon', 375, 580, 10);
+
+        // Custom shape using path commands
+        doc.text('Custom shapes using moveTo/lineTo', 50, 540, 10);
+
+        // Custom Star (5-pointed)
+        doc.setFillColor(1, 1, 0);
+        doc.setStrokeColor(0, 0, 0);
+        doc.setLineWidth(2);
+
+        const starPoints = [
+          { x: 100, y: 420 },
+          { x: 110, y: 450 },
+          { x: 140, y: 450 },
+          { x: 115, y: 470 },
+          { x: 125, y: 500 },
+          { x: 100, y: 480 },
+          { x: 75, y: 500 },
+          { x: 85, y: 470 },
+          { x: 60, y: 450 },
+          { x: 90, y: 450 }
+        ];
+
+        doc.moveTo(starPoints[0].x, starPoints[0].y);
+        for (let i = 1; i < starPoints.length; i++) {
+          doc.lineTo(starPoints[i].x, starPoints[i].y);
+        }
+        doc.closePath();
+        doc.fillAndStroke();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Star', 85, 360, 10);
+
+        // Custom Arrow
+        doc.setFillColor(1, 0, 1);
+        doc.moveTo(250, 450);
+        doc.lineTo(350, 450);
+        doc.lineTo(350, 430);
+        doc.lineTo(380, 460);
+        doc.lineTo(350, 490);
+        doc.lineTo(350, 470);
+        doc.lineTo(250, 470);
+        doc.closePath();
+        doc.fill();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Arrow', 295, 360, 10);
+
+        // Octagon (8 sides)
+        doc.setFillColor(0, 1, 1);
+        doc.polygon({ x: 100, y: 250, radius: 40, sides: 8 });
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Octagon', 75, 180, 10);
+
+        await doc.save('test-polygons.pdf');
+        showStatus('✅ Polygon test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testPaths() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Paths Test' });
+
+        doc.text('Custom Path Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Curved path
+        doc.setStrokeColor(1, 0, 0);
+        doc.setLineWidth(3);
+        doc.moveTo(50, 700);
+        doc.lineTo(150, 700);
+        doc.bezierCurveTo(200, 700, 200, 650, 150, 650);
+        doc.lineTo(50, 650);
+        doc.stroke();
+
+        // Complex path
+        doc.setFillColor(0, 0, 1);
+        doc.moveTo(300, 700);
+        doc.lineTo(400, 700);
+        doc.lineTo(400, 650);
+        doc.lineTo(350, 620);
+        doc.lineTo(300, 650);
+        doc.closePath();
+        doc.fill();
+
+        await doc.save('test-paths.pdf');
+        showStatus('✅ Path test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== COLORS ==========
+
+    async function testFillColors() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Fill Colors Test' });
+
+        doc.text('Fill Color Test (RGB)', 50, 750, 20, 'Helvetica-Bold');
+
+        const colors = [
+          { r: 1, g: 0, b: 0, name: 'Red (1,0,0)' },
+          { r: 0, g: 1, b: 0, name: 'Green (0,1,0)' },
+          { r: 0, g: 0, b: 1, name: 'Blue (0,0,1)' },
+          { r: 1, g: 1, b: 0, name: 'Yellow (1,1,0)' },
+          { r: 1, g: 0, b: 1, name: 'Magenta (1,0,1)' },
+          { r: 0, g: 1, b: 1, name: 'Cyan (0,1,1)' },
+          { r: 0.5, g: 0, b: 0.5, name: 'Purple (0.5,0,0.5)' },
+          { r: 1, g: 0.5, b: 0, name: 'Orange (1,0.5,0)' },
+          { r: 0.2, g: 0.6, b: 0.2, name: 'Forest Green (0.2,0.6,0.2)' },
+          { r: 0.4, g: 0.2, b: 0.8, name: 'Indigo (0.4,0.2,0.8)' }
+        ];
+
+        let y = 700;
+        colors.forEach(color => {
+          doc.setFillColor(color.r, color.g, color.b);
+          doc.rect(50, y - 20, 150, 25);
+          doc.fill();
+
+          doc.setFillColor(0, 0, 0);
+          doc.text(color.name, 220, y - 5, 12);
+          y -= 35;
+        });
+
+        await doc.save('test-fill-colors.pdf');
+        showStatus('✅ Fill color test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testStrokeColors() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Stroke Colors Test' });
+
+        doc.text('Stroke Color Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const colors = [
+          { r: 1, g: 0, b: 0, name: 'Red' },
+          { r: 0, g: 1, b: 0, name: 'Green' },
+          { r: 0, g: 0, b: 1, name: 'Blue' },
+          { r: 1, g: 1, b: 0, name: 'Yellow' },
+          { r: 1, g: 0, b: 1, name: 'Magenta' },
+          { r: 0, g: 1, b: 1, name: 'Cyan' }
+        ];
+
+        let y = 700;
+        doc.setLineWidth(5);
+        colors.forEach(color => {
+          doc.setStrokeColor(color.r, color.g, color.b);
+          doc.rect(50, y - 20, 150, 25);
+          doc.stroke();
+
+          doc.setFillColor(0, 0, 0);
+          doc.text(color.name, 220, y - 5, 12);
+          y -= 40;
+        });
+
+        await doc.save('test-stroke-colors.pdf');
+        showStatus('✅ Stroke color test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testLineWidths() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Line Widths Test' });
+
+        doc.text('Line Width Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const widths = [0.5, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
+
+        let y = 700;
+        doc.setStrokeColor(0, 0, 0);
+        widths.forEach(width => {
+          doc.setLineWidth(width);
+          doc.moveTo(50, y);
+          doc.lineTo(400, y);
+          doc.stroke();
+
+          doc.setFillColor(0, 0, 0);
+          doc.text(`${width}pt`, 420, y - 5, 10);
+          y -= (width + 15);
+        });
+
+        await doc.save('test-line-widths.pdf');
+        showStatus('✅ Line width test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testOpacity() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Opacity Test' });
+
+        doc.text('Opacity/Transparency Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Overlapping circles with different opacities
+        doc.setFillColor(1, 0, 0);
+        doc.circle({ x: 150, y: 600, radius: 50 });
+        doc.fill();
+
+        doc.setFillColor(0, 1, 0);
+        doc.circle({ x: 200, y: 600, radius: 50 });
+        doc.fill();
+
+        doc.setFillColor(0, 0, 1);
+        doc.circle({ x: 175, y: 650, radius: 50 });
+        doc.fill();
+
+        doc.text('Overlapping shapes show transparency', 100, 530, 12);
+
+        await doc.save('test-opacity.pdf');
+        showStatus('✅ Opacity test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== IMAGES ==========
+
+    async function testImageBasic() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Image Basic Test' });
+
+        const imageBuffer = await createDemoImage(200, 150, 'Demo Image');
+
+        doc.text('Basic Image Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Image embedded in PDF:', 50, 720, 12);
+
+        await doc.image(imageBuffer, 50, 500, { width: 200, height: 150 });
+
+        doc.text('Image dimensions: 200x150', 50, 470, 10);
+
+        await doc.save('test-image-basic.pdf');
+        showStatus('✅ Basic image test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testImageSizes() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Image Sizes Test' });
+
+        doc.text('Image Scaling Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const imageBuffer = await createDemoImage(200, 150, 'Scaled');
+
+        // Original size
+        await doc.image(imageBuffer, 50, 550, { width: 100, height: 75 });
+        doc.text('100x75', 50, 520, 10);
+
+        // Medium
+        await doc.image(imageBuffer, 180, 550, { width: 150, height: 112 });
+        doc.text('150x112', 180, 520, 10);
+
+        // Large
+        await doc.image(imageBuffer, 50, 350, { width: 200, height: 150 });
+        doc.text('200x150', 50, 320, 10);
+
+        await doc.save('test-image-sizes.pdf');
+        showStatus('✅ Image size test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testImagePositions() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Image Positions Test' });
+
+        doc.text('Image Positioning Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const imageBuffer = await createDemoImage(150, 100, 'Positioned');
+
+        // Top-left
+        await doc.image(imageBuffer, 50, 600, { width: 100, height: 67 });
+        doc.text('Top-left', 50, 580, 10);
+
+        // Top-right
+        await doc.image(imageBuffer, 400, 600, { width: 100, height: 67 });
+        doc.text('Top-right', 400, 580, 10);
+
+        // Center
+        await doc.image(imageBuffer, 225, 450, { width: 100, height: 67 });
+        doc.text('Center', 225, 430, 10);
+
+        // Bottom-left
+        await doc.image(imageBuffer, 50, 300, { width: 100, height: 67 });
+        doc.text('Bottom-left', 50, 280, 10);
+
+        // Bottom-right
+        await doc.image(imageBuffer, 400, 300, { width: 100, height: 67 });
+        doc.text('Bottom-right', 400, 280, 10);
+
+        await doc.save('test-image-positions.pdf');
+        showStatus('✅ Image position test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testMultipleImages() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Multiple Images Test' });
+
+        doc.text('Multiple Images Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const images = [];
+        for (let i = 1; i <= 6; i++) {
+          images.push(await createDemoImage(150, 100, `Image ${i}`));
+        }
+
+        let x = 50;
+        let y = 650;
+        let col = 0;
+
+        for (const img of images) {
+          await doc.image(img, x, y, { width: 120, height: 80 });
+          x += 140;
+          col++;
+          if (col === 3) {
+            col = 0;
+            x = 50;
+            y -= 100;
+          }
+        }
+
+        await doc.save('test-multiple-images.pdf');
+        showStatus('✅ Multiple images test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== TABLES ==========
+
+    async function testTableBasic() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Table Basic Test' });
+
+        doc.text('Basic Table Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.table({
+          headers: ['Name', 'Age', 'City'],
+          rows: [
+            ['John Doe', '30', 'New York'],
+            ['Jane Smith', '25', 'Los Angeles'],
+            ['Bob Johnson', '35', 'Chicago']
+          ],
+          x: 50,
+          y: 600,
+          width: 400
+        });
+
+        await doc.save('test-table-basic.pdf');
+        showStatus('✅ Basic table test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTableStyled() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Table Styled Test' });
+
+        doc.text('Styled Table Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.table({
+          headers: ['Product', 'Price', 'Stock', 'Status'],
+          rows: [
+            ['Laptop', '$999', '15', 'Available'],
+            ['Mouse', '$29', '150', 'Available'],
+            ['Keyboard', '$79', '75', 'Available'],
+            ['Monitor', '$299', '30', 'Available']
+          ],
+          x: 50,
+          y: 600,
+          width: 500,
+          headerBackgroundColor: { r: 0.4, g: 0.2, b: 0.8 },
+          headerTextColor: { r: 1, g: 1, b: 1 }
+        });
+
+        await doc.save('test-table-styled.pdf');
+        showStatus('✅ Styled table test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTableComplex() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Table Complex Test' });
+
+        doc.text('Complex Table Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.table({
+          headers: ['ID', 'Item', 'Description', 'Qty', 'Price', 'Total'],
+          rows: [
+            ['001', 'Widget A', 'High quality widget', '5', '$10.00', '$50.00'],
+            ['002', 'Widget B', 'Premium widget', '3', '$15.00', '$45.00'],
+            ['003', 'Gadget X', 'Advanced gadget', '2', '$25.00', '$50.00'],
+            ['004', 'Tool Y', 'Professional tool', '1', '$100.00', '$100.00'],
+            ['005', 'Part Z', 'Replacement part', '10', '$5.00', '$50.00']
+          ],
+          x: 30,
+          y: 580,
+          width: 550
+        });
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Total: $295.00', 450, 390, 14, 'Helvetica-Bold');
+
+        await doc.save('test-table-complex.pdf');
+        showStatus('✅ Complex table test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTableLarge() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Table Large Test' });
+
+        doc.text('Large Table Test', 50, 750, 20, 'Helvetica-Bold');
+
+        const rows = [];
+        for (let i = 1; i <= 25; i++) {
+          rows.push([
+            `${i}`,
+            `Item ${i}`,
+            `$${(i * 10).toFixed(2)}`,
+            i % 2 === 0 ? 'Active' : 'Inactive'
+          ]);
+        }
+
+        doc.table({
+          headers: ['#', 'Name', 'Value', 'Status'],
+          rows: rows,
+          x: 50,
+          y: 50,
+          width: 400,
+          autoPageBreak: true,
+          repeatHeader: true,
+          bottomMargin: 50
+        });
+
+        await doc.save('test-table-large.pdf');
+        showStatus('✅ Large table test completed (may span multiple pages)!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== CHARTS ==========
+
+    async function testBarChart() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Bar Chart Test' });
+
+        doc.text('Bar Chart Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.barChart({
+          data: [
+            { label: 'Jan', value: 45000 },
+            { label: 'Feb', value: 52000 },
+            { label: 'Mar', value: 48000 },
+            { label: 'Apr', value: 61000 },
+            { label: 'May', value: 58000 },
+            { label: 'Jun', value: 67000 }
+          ],
+          x: 80,
+          y: 400,
+          width: 450,
+          height: 300,
+          title: 'Monthly Revenue',
+          colors: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a']
+        });
+
+        await doc.save('test-chart-bar.pdf');
+        showStatus('✅ Bar chart test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testLineChart() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Line Chart Test' });
+
+        doc.text('Line Chart Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.lineChart({
+          data: [
+            { label: 'Week 1', value: 120 },
+            { label: 'Week 2', value: 150 },
+            { label: 'Week 3', value: 130 },
+            { label: 'Week 4', value: 180 },
+            { label: 'Week 5', value: 160 },
+            { label: 'Week 6', value: 200 }
+          ],
+          x: 80,
+          y: 400,
+          width: 450,
+          height: 300,
+          title: 'Weekly Sales Trend',
+          color: '#667eea'
+        });
+
+        await doc.save('test-chart-line.pdf');
+        showStatus('✅ Line chart test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testPieChart() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Pie Chart Test' });
+
+        doc.text('Pie Chart Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.pieChart({
+          data: [
+            { label: 'Product A', value: 35 },
+            { label: 'Product B', value: 25 },
+            { label: 'Product C', value: 20 },
+            { label: 'Product D', value: 15 },
+            { label: 'Other', value: 5 }
+          ],
+          x: 250,
+          y: 500,
+          radius: 120,
+          title: 'Market Share',
+          colors: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b']
+        });
+
+        await doc.save('test-chart-pie.pdf');
+        showStatus('✅ Pie chart test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testMultipleCharts() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Multiple Charts Test' });
+
+        doc.text('Multiple Charts Dashboard', 50, 750, 20, 'Helvetica-Bold');
+
+        // Bar chart
+        doc.barChart({
+          data: [
+            { label: 'Q1', value: 150 },
+            { label: 'Q2', value: 200 },
+            { label: 'Q3', value: 180 },
+            { label: 'Q4', value: 220 }
+          ],
+          x: 50,
+          y: 400,
+          width: 220,
+          height: 150,
+          title: 'Quarterly Sales',
+          colors: ['#667eea', '#764ba2', '#f093fb', '#4facfe']
+        });
+
+        // Line chart
+        doc.lineChart({
+          data: [
+            { label: 'Jan', value: 50 },
+            { label: 'Feb', value: 65 },
+            { label: 'Mar', value: 55 },
+            { label: 'Apr', value: 75 },
+            { label: 'May', value: 70 },
+            { label: 'Jun', value: 85 }
+          ],
+          x: 310,
+          y: 400,
+          width: 220,
+          height: 150,
+          title: 'Growth Trend',
+          color: '#43e97b'
+        });
+
+        // Pie chart
+        doc.pieChart({
+          data: [
+            { label: 'A', value: 40 },
+            { label: 'B', value: 30 },
+            { label: 'C', value: 20 },
+            { label: 'D', value: 10 }
+          ],
+          x: 150,
+          y: 180,
+          radius: 80,
+          title: 'Distribution',
+          colors: ['#667eea', '#764ba2', '#f093fb', '#4facfe']
+        });
+
+        await doc.save('test-charts-multiple.pdf');
+        showStatus('✅ Multiple charts test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== QR CODES ==========
+
+    async function testQRURL() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'QR URL Test' });
+
+        doc.text('QR Code - URL Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Scan to visit GitHub:', 50, 720, 12);
+
+        await doc.qrCode({
+          data: 'https://github.com/pdfstudio-dev/pdfstudio',
+          x: 200,
+          y: 500,
+          size: 150
+        });
+
+        doc.text('https://github.com/pdfstudio-dev/pdfstudio', 100, 420, 10);
+
+        await doc.save('test-qr-url.pdf');
+        showStatus('✅ QR URL test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testQRText() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'QR Text Test' });
+
+        doc.text('QR Code - Text Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Scan to read message:', 50, 720, 12);
+
+        await doc.qrCode({
+          data: { text: 'Hello from PDFStudio! This is a text QR code generated in the browser.' },
+          x: 200,
+          y: 500,
+          size: 150
+        });
+
+        doc.text('Contains: "Hello from PDFStudio!..."', 150, 420, 10);
+
+        await doc.save('test-qr-text.pdf');
+        showStatus('✅ QR text test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testQREmail() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'QR Email Test' });
+
+        doc.text('QR Code - Email Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Scan to send email:', 50, 720, 12);
+
+        await doc.qrCode({
+          data: {
+            email: {
+              address: 'pdfstudio@ideas2code.dev',
+              subject: 'Hello from PDFStudio',
+              body: 'I generated this QR code in my browser!'
+            }
+          },
+          x: 200,
+          y: 500,
+          size: 150
+        });
+
+        doc.text('Email: pdfstudio@ideas2code.dev', 180, 420, 10);
+
+        await doc.save('test-qr-email.pdf');
+        showStatus('✅ QR email test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testQRPhone() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'QR Phone Test' });
+
+        doc.text('QR Code - Phone Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Scan to call:', 50, 720, 12);
+
+        await doc.qrCode({
+          data: { phone: '+1-555-123-4567' },
+          x: 200,
+          y: 500,
+          size: 150
+        });
+
+        doc.text('Phone: +1-555-123-4567', 200, 420, 10);
+
+        await doc.save('test-qr-phone.pdf');
+        showStatus('✅ QR phone test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testQRWiFi() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'QR WiFi Test' });
+
+        doc.text('QR Code - WiFi Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Scan to connect to WiFi:', 50, 720, 12);
+
+        await doc.qrCode({
+          data: {
+            wifi: {
+              ssid: 'PDFStudio-Network',
+              password: 'secure-password-123',
+              encryption: 'WPA'
+            }
+          },
+          x: 200,
+          y: 500,
+          size: 150
+        });
+
+        doc.text('Network: PDFStudio-Network', 180, 420, 10);
+        doc.text('Password: secure-password-123', 180, 400, 10);
+
+        await doc.save('test-qr-wifi.pdf');
+        showStatus('✅ QR WiFi test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testQRVCard() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'QR vCard Test' });
+
+        doc.text('QR Code - vCard Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Scan to save contact:', 50, 720, 12);
+
+        await doc.qrCode({
+          data: {
+            vcard: {
+              firstName: 'John',
+              lastName: 'Doe',
+              organization: 'PDFStudio Inc',
+              title: 'Software Engineer',
+              phone: '+1-555-987-6543',
+              email: 'john.doe@pdfstudio.dev',
+              url: 'https://pdfstudio.dev'
+            }
+          },
+          x: 200,
+          y: 500,
+          size: 150
+        });
+
+        doc.text('Contact: John Doe', 200, 420, 10);
+        doc.text('PDFStudio Inc - Software Engineer', 150, 400, 10);
+
+        await doc.save('test-qr-vcard.pdf');
+        showStatus('✅ QR vCard test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== WATERMARKS ==========
+
+    async function testWatermarkText() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Text Watermark Test' });
+
+        doc.text('Text Watermark Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('This page has a text watermark', 50, 720, 12);
+
+        doc.rect(100, 500, 400, 200);
+        doc.setFillColor(0.9, 0.95, 1);
+        doc.fill();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Document content goes here', 150, 600, 14);
+
+        doc.addWatermark({
+          type: 'text',
+          text: 'CONFIDENTIAL',
+          opacity: 0.3,
+          fontSize: 72,
+          color: [1, 0, 0],  // Red
+          rotation: 45
+        });
+
+        await doc.save('test-watermark-text.pdf');
+        showStatus('✅ Text watermark test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testWatermarkImage() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Image Watermark Test' });
+
+        doc.text('Image Watermark Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('This page has an image watermark', 50, 720, 12);
+
+        const imageBuffer = await createDemoImage(200, 150, 'WATERMARK');
+
+        doc.rect(100, 400, 400, 300);
+        doc.setFillColor(0.95, 0.95, 0.95);
+        doc.fill();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Document content', 250, 600, 14);
+
+        doc.addWatermark({
+          type: 'image',
+          source: imageBuffer,
+          opacity: 0.2,
+          width: 300,
+          height: 225
+        });
+
+        await doc.save('test-watermark-image.pdf');
+        showStatus('✅ Image watermark test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testWatermarkRotated() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Rotated Watermark Test' });
+
+        doc.text('Rotated Watermark Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.addWatermark({
+          type: 'text',
+          text: 'DRAFT',
+          opacity: 0.25,
+          fontSize: 100,
+          color: [0, 0, 1],  // Blue
+          rotation: 45
+        });
+
+        doc.text('The watermark is rotated 45 degrees', 50, 400, 14);
+
+        await doc.save('test-watermark-rotated.pdf');
+        showStatus('✅ Rotated watermark test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testWatermarkTransparent() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Transparent Watermark Test' });
+
+        doc.text('Transparent Watermark Test', 50, 750, 20, 'Helvetica-Bold');
+
+        doc.addWatermark({
+          type: 'text',
+          text: 'SAMPLE',
+          opacity: 0.15,
+          fontSize: 80,
+          color: [0, 0, 0],  // Black
+          rotation: 0
+        });
+
+        doc.text('Very transparent watermark (opacity: 0.15)', 50, 400, 14);
+
+        await doc.save('test-watermark-transparent.pdf');
+        showStatus('✅ Transparent watermark test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== MULTI-PAGE ==========
+
+    async function testMultiplePagesBasic() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Multiple Pages Test' });
+
+        // Page 1
+        doc.text('Multiple Pages Test', 50, 750, 24, 'Helvetica-Bold');
+        doc.text('This is page 1 of 3', 50, 720, 14);
+        doc.rect(50, 500, 500, 200);
+        doc.setFillColor(1, 0.9, 0.9);
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Page 1 Content', 250, 600, 16);
+
+        // Page 2
+        doc.addPage();
+        doc.text('Page 2', 50, 750, 24, 'Helvetica-Bold');
+        doc.text('This is page 2 of 3', 50, 720, 14);
+        doc.rect(50, 500, 500, 200);
+        doc.setFillColor(0.9, 1, 0.9);
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Page 2 Content', 250, 600, 16);
+
+        // Page 3
+        doc.addPage();
+        doc.text('Page 3', 50, 750, 24, 'Helvetica-Bold');
+        doc.text('This is page 3 of 3', 50, 720, 14);
+        doc.rect(50, 500, 500, 200);
+        doc.setFillColor(0.9, 0.9, 1);
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Page 3 Content', 250, 600, 16);
+
+        await doc.save('test-multi-page-basic.pdf');
+        showStatus('✅ Multiple pages test completed (3 pages)!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testHeadersFooters() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({
+          title: 'Headers & Footers Test',
+          header: {
+            text: 'PDFStudio Document',
+            align: 'center'
+          },
+          footer: {
+            text: 'Confidential - Do Not Distribute',
+            align: 'center'
+          }
+        });
+
+        doc.text('Headers & Footers Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Check the header and footer on this page', 50, 720, 12);
+
+        doc.addPage();
+        doc.text('Page 2', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Headers and footers appear on all pages', 50, 720, 12);
+
+        await doc.save('test-headers-footers.pdf');
+        showStatus('✅ Headers & footers test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testPageNumbers() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({
+          title: 'Page Numbers Test',
+          footer: {
+            pageNumbers: true,
+            align: 'center'
+          }
+        });
+
+        for (let i = 1; i <= 5; i++) {
+          if (i > 1) doc.addPage();
+          doc.text(`Page ${i}`, 50, 750, 20, 'Helvetica-Bold');
+          doc.text(`Check the page number at the bottom: ${i}`, 50, 720, 12);
+        }
+
+        await doc.save('test-page-numbers.pdf');
+        showStatus('✅ Page numbers test completed (5 pages)!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testMargins() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({
+          title: 'Margins Test',
+          margins: { top: 100, bottom: 100, left: 100, right: 100 }
+        });
+
+        doc.text('Custom Margins Test', 100, 750, 20, 'Helvetica-Bold');
+        doc.text('Margins: 100pt on all sides', 100, 720, 12);
+
+        // Draw border to show margin area
+        doc.setStrokeColor(1, 0, 0);
+        doc.setLineWidth(2);
+        doc.rect(100, 100, 412, 642);
+        doc.stroke();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Red border shows the margin boundaries', 100, 680, 10);
+
+        await doc.save('test-margins.pdf');
+        showStatus('✅ Margins test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testPageBreaks() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Page Breaks Test' });
+
+        doc.text('Automatic Page Breaks Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Adding lots of content to test auto page breaks...', 50, 720, 12);
+
+        let y = 680;
+        for (let i = 1; i <= 50; i++) {
+          doc.text(`Line ${i}: This is a test line to demonstrate automatic page breaks`, 50, y, 10);
+          y -= 15;
+
+          // Simulate auto page break
+          if (y < 50) {
+            doc.addPage();
+            y = 750;
+          }
+        }
+
+        await doc.save('test-page-breaks.pdf');
+        showStatus('✅ Page breaks test completed (multiple pages)!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== TRANSFORMATIONS ==========
+
+    async function testRotation() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Rotation Test' });
+
+        doc.text('Rotation Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Text and shapes at different rotation angles', 50, 720, 12);
+
+        // Rotated text (if supported)
+        doc.saveGraphicsState();
+        doc.translate(300, 600);
+        doc.rotate(45);
+        doc.setFillColor(1, 0, 0);
+        doc.text('Rotated 45°', 0, 0, 14, 'Helvetica-Bold');
+        doc.restoreGraphicsState();
+
+        doc.saveGraphicsState();
+        doc.translate(300, 500);
+        doc.rotate(90);
+        doc.setFillColor(0, 1, 0);
+        doc.text('Rotated 90°', 0, 0, 14, 'Helvetica-Bold');
+        doc.restoreGraphicsState();
+
+        await doc.save('test-rotation.pdf');
+        showStatus('✅ Rotation test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testScaling() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Scaling Test' });
+
+        doc.text('Scaling Test', 50, 750, 20, 'Helvetica-Bold');
+
+        // Normal
+        doc.setFillColor(1, 0, 0);
+        doc.rect(50, 650, 50, 50);
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('Normal', 50, 620, 10);
+
+        // Scaled 1.5x
+        doc.setFillColor(0, 1, 0);
+        doc.rect(150, 650, 75, 75);
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('1.5x', 150, 620, 10);
+
+        // Scaled 2x
+        doc.setFillColor(0, 0, 1);
+        doc.rect(270, 650, 100, 100);
+        doc.fill();
+        doc.setFillColor(0, 0, 0);
+        doc.text('2x', 270, 620, 10);
+
+        await doc.save('test-scaling.pdf');
+        showStatus('✅ Scaling test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testTranslation() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Translation Test' });
+
+        doc.text('Translation Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Moving shapes with translate', 50, 720, 12);
+
+        for (let i = 0; i < 5; i++) {
+          doc.saveGraphicsState();
+          doc.translate(50 + (i * 100), 600 - (i * 50));
+          doc.setFillColor(i * 0.2, 0.5, 1 - (i * 0.2));
+          doc.rect(0, 0, 60, 60);
+          doc.fill();
+          doc.restoreGraphicsState();
+        }
+
+        await doc.save('test-translation.pdf');
+        showStatus('✅ Translation test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== ADVANCED ==========
+
+    async function testLinks() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Links Test' });
+
+        doc.text('Hyperlinks Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Click the links below:', 50, 720, 12);
+
+        doc.setFillColor(0, 0, 1);
+        doc.text('Visit GitHub', 50, 680, 14, 'Helvetica');
+        doc.addExternalLink({ x: 50, y: 680, width: 100, height: 14, url: 'https://github.com' });
+
+        doc.text('Visit Google', 50, 650, 14, 'Helvetica');
+        doc.addExternalLink({ x: 50, y: 650, width: 100, height: 14, url: 'https://google.com' });
+
+        doc.text('Send Email', 50, 620, 14, 'Helvetica');
+        doc.addExternalLink({ x: 50, y: 620, width: 100, height: 14, url: 'mailto:pdfstudio@ideas2code.dev' });
+
+        await doc.save('test-links.pdf');
+        showStatus('✅ Links test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testMetadata() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({
+          title: 'Metadata Test Document',
+          author: 'PDFStudio Browser',
+          subject: 'Testing PDF Metadata',
+          keywords: 'pdf, metadata, test, browser',
+          creator: 'PDFStudio v0.1.1'
+        });
+
+        doc.text('Document Metadata Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('This PDF has custom metadata', 50, 720, 12);
+
+        doc.text('Metadata:', 50, 680, 14, 'Helvetica-Bold');
+        doc.text('- Title: Metadata Test Document', 50, 660, 11);
+        doc.text('- Author: PDFStudio Browser', 50, 645, 11);
+        doc.text('- Subject: Testing PDF Metadata', 50, 630, 11);
+        doc.text('- Keywords: pdf, metadata, test, browser', 50, 615, 11);
+        doc.text('- Creator: PDFStudio v0.1.1', 50, 600, 11);
+
+        doc.text('Check PDF properties to see metadata', 50, 560, 10);
+
+        await doc.save('test-metadata.pdf');
+        showStatus('✅ Metadata test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testEncryption() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({
+          title: 'Encryption Test',
+          security: {
+            userPassword: 'user123',
+            ownerPassword: 'owner456',
+            permissions: {
+              printing: 'highResolution',
+              modifying: false,
+              copying: false,
+              annotating: false
+            }
+          }
+        });
+
+        doc.text('Encryption/Security Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('This PDF is password protected', 50, 720, 12);
+
+        doc.text('Passwords:', 50, 680, 14, 'Helvetica-Bold');
+        doc.text('- User Password: user123', 50, 660, 11);
+        doc.text('- Owner Password: owner456', 50, 645, 11);
+
+        doc.text('Permissions:', 50, 610, 14, 'Helvetica-Bold');
+        doc.text('- Printing: Allowed (high resolution)', 50, 590, 11);
+        doc.text('- Modifying: Not allowed', 50, 575, 11);
+        doc.text('- Copying: Not allowed', 50, 560, 11);
+        doc.text('- Annotating: Not allowed', 50, 545, 11);
+
+        await doc.save('test-encryption.pdf');
+        showStatus('✅ Encryption test completed! Password: user123');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testAttachments() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Attachments Test' });
+
+        doc.text('File Attachments Test', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('This PDF has file attachments', 50, 720, 12);
+
+        // Create dummy file buffers
+        const textFile = Buffer.from('This is a text file attachment');
+        const jsonFile = Buffer.from(JSON.stringify({ message: 'JSON attachment', data: [1, 2, 3] }));
+
+        doc.attachFile({
+          name: 'readme.txt',
+          file: textFile,
+          description: 'Text file attachment'
+        });
+
+        doc.attachFile({
+          name: 'data.json',
+          file: jsonFile,
+          description: 'JSON data attachment'
+        });
+
+        doc.text('Attached Files:', 50, 680, 14, 'Helvetica-Bold');
+        doc.text('- readme.txt (Text file)', 50, 660, 11);
+        doc.text('- data.json (JSON data)', 50, 645, 11);
+
+        doc.text('Check PDF attachments panel to view files', 50, 600, 10);
+
+        await doc.save('test-attachments.pdf');
+        showStatus('✅ Attachments test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== REAL-WORLD EXAMPLES ==========
+
+    async function generateInvoice() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Invoice #12345' });
+
+        // Header
+        doc.setFillColor(0.2, 0.3, 0.8);
+        doc.rect(0, 712, 612, 80);
+        doc.fill();
+
+        doc.setFillColor(1, 1, 1);
+        doc.text('INVOICE', 50, 752, 28, 'Helvetica-Bold');
+        doc.text('Invoice #12345', 420, 757, 14);
+        doc.text('Date: ' + new Date().toLocaleDateString(), 420, 737, 12);
+
+        // Company info
+        doc.setFillColor(0, 0, 0);
+        doc.text('Acme Corporation', 50, 672, 14, 'Helvetica-Bold');
+        doc.text('123 Business St.', 50, 652, 10);
+        doc.text('Business City, BC 12345', 50, 637, 10);
+        doc.text('Phone: (555) 123-4567', 50, 622, 10);
+
+        // Client info
+        doc.text('Bill To:', 350, 672, 12, 'Helvetica-Bold');
+        doc.text('Client Name', 350, 652, 10);
+        doc.text('456 Client Ave.', 350, 637, 10);
+        doc.text('Client City, CC 67890', 350, 622, 10);
+
+        // Table
+        doc.table({
+          headers: ['Description', 'Qty', 'Price', 'Total'],
+          rows: [
+            ['Professional Services', '10 hrs', '$100.00', '$1,000.00'],
+            ['Software License', '1', '$500.00', '$500.00'],
+            ['Support & Maintenance', '1 yr', '$300.00', '$300.00'],
+            ['Consulting Fee', '5 hrs', '$150.00', '$750.00']
+          ],
+          x: 50,
+          y: 472,
+          width: 500
+        });
+
+        // Subtotal and total
+        doc.text('Subtotal:', 380, 280, 12);
+        doc.text('$2,550.00', 480, 280, 12);
+
+        doc.text('Tax (10%):', 380, 260, 12);
+        doc.text('$255.00', 480, 260, 12);
+
+        doc.rect(350, 170, 200, 40);
+        doc.setFillColor(0.95, 0.95, 0.95);
+        doc.fill();
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('Total Amount:', 360, 185, 14, 'Helvetica-Bold');
+        doc.text('$2,805.00', 470, 185, 14, 'Helvetica-Bold');
+
+        // Footer
+        doc.text('Payment Terms: Net 30 days', 50, 140, 10);
+        doc.text('Please make checks payable to Acme Corporation', 50, 125, 10);
+        doc.text('Thank you for your business!', 50, 100, 10, 'Helvetica-Oblique');
+
+        await doc.save('invoice-12345.pdf');
+        showStatus('✅ Invoice generated successfully!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function generateReport() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Business Report' });
+
+        doc.text('Q4 2024 Business Report', 50, 750, 24, 'Helvetica-Bold');
+        doc.text('Executive Summary', 50, 720, 16, 'Helvetica-Bold');
+
+        doc.text('Generated: ' + new Date().toLocaleDateString(), 420, 750, 10);
+
+        // Executive Summary
+        doc.text('This quarter showed strong growth across all metrics. Revenue increased by 23%,', 50, 690, 11);
+        doc.text('customer acquisition improved by 34%, and customer satisfaction remained high at 4.8/5.', 50, 675, 11);
+
+        // Performance Table
+        doc.text('Key Performance Indicators', 50, 640, 14, 'Helvetica-Bold');
+        doc.table({
+          headers: ['Metric', 'Q3 2024', 'Q4 2024', 'Change', 'Target'],
+          rows: [
+            ['Revenue', '$450K', '$554K', '+23%', '$500K'],
+            ['New Customers', '1,250', '1,675', '+34%', '1,500'],
+            ['Churn Rate', '2.1%', '1.5%', '-29%', '<2%'],
+            ['Customer Satisfaction', '4.5', '4.8', '+7%', '>4.5'],
+            ['Support Tickets', '450', '380', '-16%', '<400']
+          ],
+          x: 50,
+          y: 450,
+          width: 500
+        });
+
+        // Chart
+        doc.addPage();
+        doc.text('Revenue Trend', 50, 750, 16, 'Helvetica-Bold');
+
+        doc.barChart({
+          data: [
+            { label: 'Q1', value: 380 },
+            { label: 'Q2', value: 420 },
+            { label: 'Q3', value: 450 },
+            { label: 'Q4', value: 554 }
+          ],
+          x: 80,
+          y: 450,
+          width: 450,
+          height: 250,
+          title: 'Quarterly Revenue ($K)',
+          colors: ['#667eea', '#764ba2', '#f093fb', '#43e97b']
+        });
+
+        doc.text('Recommendations', 80, 150, 14, 'Helvetica-Bold');
+        doc.text('- Continue investment in customer acquisition', 80, 130, 11);
+        doc.text('- Expand support team to handle growth', 80, 115, 11);
+        doc.text('- Launch new product features in Q1 2025', 80, 100, 11);
+
+        await doc.save('business-report-q4-2024.pdf');
+        showStatus('✅ Business report generated successfully!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function generateCertificate() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Certificate of Achievement' });
+
+        // Border
+        doc.setStrokeColor(0.4, 0.2, 0.8);
+        doc.setLineWidth(10);
+        doc.rect(40, 40, 532, 722);
+        doc.stroke();
+
+        doc.setStrokeColor(0.6, 0.4, 0.9);
+        doc.setLineWidth(2);
+        doc.rect(60, 60, 492, 682);
+        doc.stroke();
+
+        // Title
+        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.text('CERTIFICATE', 306, 680, 32, 'Helvetica-Bold');
+        doc.text('OF ACHIEVEMENT', 306, 640, 24, 'Helvetica-Bold');
+
+        // Body
+        doc.setFillColor(0, 0, 0);
+        doc.text('This is to certify that', 306, 560, 14);
+
+        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.text('John Doe', 306, 510, 28, 'Helvetica-Bold');
+
+        doc.setFillColor(0, 0, 0);
+        doc.text('has successfully completed', 306, 470, 14);
+
+        doc.text('Advanced PDF Generation with PDFStudio', 306, 440, 16, 'Helvetica-Bold');
+
+        doc.text('Date: ' + new Date().toLocaleDateString(), 306, 380, 12);
+
+        // Signature line
+        doc.setStrokeColor(0, 0, 0);
+        doc.setLineWidth(1);
+        doc.moveTo(180, 280);
+        doc.lineTo(320, 280);
+        doc.stroke();
+        doc.text('Instructor Signature', 250, 260, 10);
+
+        doc.moveTo(340, 280);
+        doc.lineTo(480, 280);
+        doc.stroke();
+        doc.text('Date', 400, 260, 10);
+
+        // Footer
+        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.text('PDFStudio Academy', 306, 180, 12, 'Helvetica-Bold');
+        doc.setFillColor(0.5, 0.5, 0.5);
+        doc.text('Excellence in PDF Generation', 306, 165, 10);
+
+        await doc.save('certificate-john-doe.pdf');
+        showStatus('✅ Certificate generated successfully!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function generateFlyer() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Product Flyer' });
+
+        // Header
+        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.rect(0, 700, 612, 92);
+        doc.fill();
+
+        doc.setFillColor(1, 1, 1);
+        doc.text('INTRODUCING', 306, 760, 16, 'Helvetica-Bold');
+        doc.text('PDFStudio Pro', 306, 730, 32, 'Helvetica-Bold');
+
+        // Tagline
+        doc.setFillColor(0, 0, 0);
+        doc.text('Professional PDF Generation for Modern Web Apps', 306, 670, 14, 'Helvetica-Oblique');
+
+        // Features
+        doc.text('Key Features', 50, 620, 18, 'Helvetica-Bold');
+
+        const features = [
+          'Browser & Node.js Support',
+          'Charts, Tables & QR Codes',
+          'Custom Fonts & Images',
+          'Watermarks & Security',
+          'Headers & Footers',
+          'Multi-page Documents'
+        ];
+
+        let y = 580;
+        features.forEach(feature => {
+          doc.setFillColor(0.4, 0.2, 0.8);
+          doc.circle({ x: 70, y: y + 4, radius: 3 });
+          doc.fill();
+          doc.setFillColor(0, 0, 0);
+          doc.text(feature, 90, y, 12);
+          y -= 25;
+        });
+
+        // Pricing
+        doc.setFillColor(0.95, 0.95, 0.95);
+        doc.rect(320, 480, 240, 140);
+        doc.fill();
+
+        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.text('Special Offer', 440, 600, 16, 'Helvetica-Bold');
+        doc.text('$99', 440, 560, 36, 'Helvetica-Bold');
+        doc.setFillColor(0, 0, 0);
+        doc.text('per month', 440, 530, 12);
+
+        doc.text('- Unlimited PDFs', 350, 500, 11);
+        doc.text('- Priority Support', 350, 485, 11);
+        doc.text('- Commercial License', 350, 470, 11);
+
+        // QR Code
+        await doc.qrCode({
+          data: 'https://pdfstudio.dev/buy',
+          x: 440,
+          y: 280,
+          size: 100
+        });
+
+        doc.text('Scan to purchase', 440, 160, 10);
+
+        // Footer
+        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.rect(0, 0, 612, 60);
+        doc.fill();
+
+        doc.setFillColor(1, 1, 1);
+        doc.text('www.pdfstudio.dev', 306, 35, 14, 'Helvetica-Bold');
+        doc.text('contact@pdfstudio.dev  |  (555) 123-4567', 306, 15, 10);
+
+        await doc.save('product-flyer.pdf');
+        showStatus('✅ Product flyer generated successfully!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function generateResume() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Resume - John Doe' });
+
+        // Header
+        doc.setFillColor(0.2, 0.3, 0.8);
+        doc.rect(0, 720, 612, 72);
+        doc.fill();
+
+        doc.setFillColor(1, 1, 1);
+        doc.text('JOHN DOE', 50, 762, 28, 'Helvetica-Bold');
+        doc.text('Senior Software Engineer', 50, 735, 14);
+
+        doc.text('john.doe@email.com', 450, 762, 11);
+        doc.text('(555) 123-4567', 450, 745, 11);
+        doc.text('linkedin.com/in/johndoe', 450, 728, 11);
+
+        // Summary
+        doc.setFillColor(0, 0, 0);
+        doc.text('PROFESSIONAL SUMMARY', 50, 690, 14, 'Helvetica-Bold');
+        doc.setStrokeColor(0.2, 0.3, 0.8);
+        doc.setLineWidth(2);
+        doc.moveTo(50, 685);
+        doc.lineTo(560, 685);
+        doc.stroke();
+
+        doc.text('Experienced software engineer with 8+ years in full-stack development. Specialized in', 50, 660, 11);
+        doc.text('building scalable web applications and leading development teams.', 50, 645, 11);
+
+        // Experience
+        doc.text('WORK EXPERIENCE', 50, 610, 14, 'Helvetica-Bold');
+        doc.moveTo(50, 605);
+        doc.lineTo(560, 605);
+        doc.stroke();
+
+        doc.text('Senior Software Engineer', 50, 580, 12, 'Helvetica-Bold');
+        doc.text('Tech Corp Inc.', 350, 580, 11);
+        doc.text('2020 - Present', 480, 580, 11, 'Helvetica-Oblique');
+        doc.text('- Led team of 5 developers on major product initiative', 50, 560, 10);
+        doc.text('- Improved application performance by 40%', 50, 545, 10);
+        doc.text('- Implemented CI/CD pipeline reducing deployment time by 60%', 50, 530, 10);
+
+        doc.text('Software Engineer', 50, 500, 12, 'Helvetica-Bold');
+        doc.text('StartUp LLC', 350, 500, 11);
+        doc.text('2018 - 2020', 480, 500, 11, 'Helvetica-Oblique');
+        doc.text('- Built core features for SaaS platform', 50, 480, 10);
+        doc.text('- Reduced bug rate by 35% through testing improvements', 50, 465, 10);
+        doc.text('- Mentored junior developers', 50, 450, 10);
+
+        // Skills
+        doc.text('SKILLS', 50, 415, 14, 'Helvetica-Bold');
+        doc.moveTo(50, 410);
+        doc.lineTo(560, 410);
+        doc.stroke();
+
+        doc.text('Languages:', 50, 385, 11, 'Helvetica-Bold');
+        doc.text('JavaScript, TypeScript, Python, Java', 130, 385, 10);
+
+        doc.text('Frameworks:', 50, 370, 11, 'Helvetica-Bold');
+        doc.text('React, Node.js, Express, Django', 130, 370, 10);
+
+        doc.text('Tools:', 50, 355, 11, 'Helvetica-Bold');
+        doc.text('Git, Docker, AWS, CI/CD', 130, 355, 10);
+
+        // Education
+        doc.text('EDUCATION', 50, 320, 14, 'Helvetica-Bold');
+        doc.moveTo(50, 315);
+        doc.lineTo(560, 315);
+        doc.stroke();
+
+        doc.text('Bachelor of Science in Computer Science', 50, 290, 12, 'Helvetica-Bold');
+        doc.text('State University', 350, 290, 11);
+        doc.text('2014 - 2018', 480, 290, 11, 'Helvetica-Oblique');
+
+        // Footer
+        doc.setFillColor(0.7, 0.7, 0.7);
+        doc.text('References available upon request', 306, 100, 9, 'Helvetica-Oblique');
+
+        await doc.save('resume-john-doe.pdf');
+        showStatus('✅ Resume generated successfully!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // Show welcome message
+    console.log('%c🎨 PDFStudio Complete Test Suite Loaded!', 'color: #667eea; font-size: 18px; font-weight: bold;');
+    console.log('Click any button above to test that feature!');
+  </script>
+</body>
+</html>

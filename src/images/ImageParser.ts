@@ -1,24 +1,19 @@
-import * as fs from 'fs'
 import * as pako from 'pako'
 import { ImageInfo, ImageFormat } from '../types'
 import { ImageError, CompressionError } from '../errors'
+import { PlatformFactory } from '../platform'
 
 /**
  * ImageParser - Detects and parses image formats (JPEG, PNG)
+ * Now supports both Node.js and Browser environments
  */
 export class ImageParser {
   /**
-   * Load and parse an image from file path or Buffer
+   * Load and parse an image from file path, URL, File object, or Buffer
    */
-  static load(source: string | Buffer): ImageInfo {
-    let buffer: Buffer
-
-    // Load from file or use Buffer directly
-    if (typeof source === 'string') {
-      buffer = fs.readFileSync(source)
-    } else {
-      buffer = source
-    }
+  static async load(source: string | File | Buffer): Promise<ImageInfo> {
+    const fs = PlatformFactory.getFileSystem()
+    const buffer = await fs.readFile(source)
 
     // Detect format
     const format = this.detectFormat(buffer)

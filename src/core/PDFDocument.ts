@@ -552,14 +552,14 @@ export class PDFDocument {
    * Register a custom TrueType/OpenType font for use in the document
    * @param customFont - Custom font options
    * @example
-   * doc.registerFont({
+   * await doc.registerFont({
    *   name: 'MyFont',
    *   source: './fonts/custom-font.ttf',
    *   subset: false
    * })
    */
-  registerFont(customFont: CustomFont): this {
-    this.writer.registerCustomFont(customFont)
+  async registerFont(customFont: CustomFont): Promise<this> {
+    await this.writer.registerCustomFont(customFont)
     return this
   }
 
@@ -736,17 +736,26 @@ export class PDFDocument {
    */
   text(text: string, x: number, y: number, fontSize?: number): this
   /**
+   * Add text with font parameter (PDFKit compatibility)
+   */
+  text(text: string, x: number, y: number, fontSize: number, font: PDFBaseFont): this
+  /**
    * Add text with advanced options (word wrap, alignment, etc.)
    */
   text(text: string, options: TextOptions & { x: number, y: number }): this
-  text(text: string, xOrOptions: number | (TextOptions & { x: number, y: number }), y?: number, fontSize?: number): this {
+  text(text: string, xOrOptions: number | (TextOptions & { x: number, y: number }), y?: number, fontSize?: number, font?: PDFBaseFont): this {
     if (typeof xOrOptions === 'number') {
-      // Simple API: text(text, x, y, fontSize)
-      this.writer.text(text, xOrOptions, y!, fontSize)
+      // Simple API: text(text, x, y, fontSize, font?)
+      if (font) {
+        // If font is provided, pass it to writer
+        this.writer.text(text, xOrOptions, y!, fontSize, font)
+      } else {
+        this.writer.text(text, xOrOptions, y!, fontSize)
+      }
     } else {
       // Advanced API: text(text, { x, y, fontSize, font, ...options })
-      const { x, y: yPos, fontSize: fs, font, ...options } = xOrOptions
-      this.writer.text(text, x, yPos, fs || 12, font || 'Helvetica', options)
+      const { x, y: yPos, fontSize: fs, font: f, ...options } = xOrOptions
+      this.writer.text(text, x, yPos, fs || 12, f || 'Helvetica', options)
     }
     return this
   }
@@ -1128,9 +1137,9 @@ export class PDFDocument {
   /**
    * Add an image to the document
    */
-  image(source: string | Buffer, options?: ImageOptions): this
-  image(source: string | Buffer, x?: number, y?: number, options?: ImageOptions): this
-  image(source: string | Buffer, xOrOptions?: number | ImageOptions, y?: number, options?: ImageOptions): this {
+  async image(source: string | File | Buffer, options?: ImageOptions): Promise<this>
+  async image(source: string | File | Buffer, x?: number, y?: number, options?: ImageOptions): Promise<this>
+  async image(source: string | File | Buffer, xOrOptions?: number | ImageOptions, y?: number, options?: ImageOptions): Promise<this> {
     // Parse arguments
     let x: number | undefined
     let opts: ImageOptions = {}
@@ -1144,12 +1153,12 @@ export class PDFDocument {
       y = opts.y
     }
 
-    // Load image to get dimensions
-    const imageInfo = ImageParser.load(source)
+    // Load image to get dimensions (async now)
+    const imageInfo = await ImageParser.load(source)
 
     // Handle mask if provided
     if (opts.mask) {
-      const maskInfo = ImageParser.load(opts.mask)
+      const maskInfo = await ImageParser.load(opts.mask)
       imageInfo.maskInfo = maskInfo
       imageInfo.maskOptions = opts.maskOptions
     }
@@ -1720,17 +1729,17 @@ export class PDFDocument {
   }
 
   /**
-   * Save the PDF to a file
+   * Save the PDF to a file (Node.js) or trigger download (Browser)
    */
-  save(filepath: string): void {
-    this.writer.save(filepath)
+  async save(filepath: string): Promise<void> {
+    await this.writer.save(filepath)
   }
 
   /**
    * Generate the PDF as a Buffer
    */
-  toBuffer(): Buffer {
-    return this.writer.generate()
+  async toBuffer(): Promise<Buffer> {
+    return await this.writer.generate()
   }
 
   /**
@@ -1747,15 +1756,15 @@ export class PDFDocument {
    * Finalize the PDF and write to the output stream (if piped)
    * Compatible with PDFKit API
    */
-  end(): void {
+  async end(): Promise<void> {
     if (this.isEnded) {
       throw new Error('Document has already been ended')
     }
 
     this.isEnded = true
 
-    // Generate the PDF
-    const pdfBuffer = this.writer.generate()
+    // Generate the PDF (async now)
+    const pdfBuffer = await this.writer.generate()
 
     // If piped to a stream, write the buffer
     if (this.outputStream) {

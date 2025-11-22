@@ -5,7 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-11-17
+## [0.2.0] - 2025-01-21
+
+### 🎉 Major New Feature: Browser Support
+
+PDFStudio now works natively in web browsers! Generate PDFs client-side with 100% API parity to the Node.js version.
+
+### ✨ Added
+
+#### 🌐 Browser Compatibility
+- **Complete Platform Abstraction** - Seamless Node.js/Browser compatibility via adapter pattern
+- **100% API Parity** - Identical API across Node.js and browsers
+- **All Features Supported** - Charts, tables, QR codes, encryption, forms, annotations, etc.
+- **Zero Server Dependencies** - Everything runs client-side
+- **Modern Browser Support** - Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- **Small Bundle Size** - ~600KB minified (including all features)
+- **TypeScript Support** - Full type definitions for browser environment
+
+#### 🔐 Browser-Specific Implementations
+- **Pure JavaScript MD5** - Custom MD5 implementation for PDF encryption in browsers
+- **Web Crypto API Integration** - Secure random number generation
+- **Canvas-Based Image Processing** - No dependencies for image handling
+- **File System Abstraction** - `BrowserFileSystem` using Fetch API, FileReader, and Blob
+- **Image Processor Abstraction** - `BrowserImageProcessor` using Canvas/OffscreenCanvas
+- **Buffer Polyfill** - Full Buffer support via npm buffer package
+- **Automatic Download** - Trigger file downloads or get as Blob for uploading
+
+#### 📦 Build System
+- **Dual Build Target** - Separate builds for Node.js (CommonJS) and Browser (IIFE)
+- **esbuild Integration** - Fast, optimized browser bundling
+- **Automatic Tree-Shaking** - Remove unused code
+- **Smart Polyfills** - Only include necessary polyfills (Buffer, crypto)
+- **Module Replacement** - Replace Node modules (fs, sharp) with browser equivalents
+- **Source Maps** - Debug support for both minified and debug builds
+
+#### 📚 Documentation
+- **BROWSER.md** - Complete browser usage guide (406 lines)
+- **BROWSER_MIGRATION.md** - Migration guide for existing users (211 lines)
+- **80+ Browser Examples** - Interactive examples in `examples/browser/index.html`
+- **Updated README** - Expanded browser support section with examples
+
+#### 🔧 API Improvements
+- **Async/Await Throughout** - All I/O operations now async
+  - `registerFont()` → `async registerFont()`
+  - `save()` → `async save()`
+  - `toBuffer()` → `async toBuffer()`
+  - `image()` → `async image()`
+- **Enhanced Text Method** - Added signature `text(text, x, y, fontSize, font)` for PDFKit compatibility
+- **Robust Error Handling** - `escapePDFString()` handles undefined values gracefully
+
+### 🐛 Fixed
+- **Table Text Alignment** - Corrected vertical centering in table cells with proper baseline calculations
+- **File Attachments** - Fixed `escapePDFString()` crash when attachment name is undefined
+- **Font Selection** - Fixed font parameter being ignored in simple text() calls
+- **Crypto Compatibility** - MD5 hashing now works in browsers (previously unsupported)
+
+### 🎨 Examples & Demos
+- **Invoice Generator** - Real-world invoice with tables and totals
+- **Business Report** - Multi-page report with KPIs and charts
+- **Certificate** - Professional certificate with vector graphics
+- **QR Code Examples** - Email, URL, WiFi, vCard, and more
+- **Form Examples** - Interactive forms with encryption
+- **Chart Gallery** - All 7 chart types with styling options
+
+### 📐 Platform Differences
+| Feature | Node.js | Browser |
+|---------|---------|---------|
+| File I/O | `fs` module | `fetch()` / `FileReader` / `Blob` |
+| Image Processing | `sharp` (optional) | Canvas API |
+| Font Loading | File paths | URLs or File objects |
+| File Save | Disk write | Download trigger |
+| Buffer | Native | Polyfilled |
+| Crypto | Node crypto | Web Crypto + MD5 polyfill |
+
+### 🔄 Breaking Changes
+- **Async Operations** - Methods involving I/O are now async (add `await`)
+  - `doc.save()` → `await doc.save()`
+  - `doc.toBuffer()` → `await doc.toBuffer()`
+  - `doc.registerFont()` → `await doc.registerFont()`
+  - `doc.image()` → `await doc.image()`
+
+### 📦 Dependencies
+- **Added**: `buffer@^6.0.3` - Buffer polyfill for browsers
+- **Added**: `esbuild@^0.19.0` - Browser bundle builder
+- **Changed**: `sharp@^0.34.5` → `optionalDependencies` (not needed in browser)
+
+### ⚡ Performance
+- **Optimized Bundle** - Tree-shaking reduces unused code
+- **Lazy Loading** - Platform adapters loaded on demand
+- **Efficient Polyfills** - Minimal overhead for browser environment
+
+### 🧪 Testing
+- **All 180 Tests Pass** - Full compatibility maintained
+- **Cross-Platform Testing** - Verified on Node.js and browsers
+- **Browser Examples** - Comprehensive manual testing suite
+
+---
+
+## [0.1.1] - 2025-01-17
 
 ### 🎉 Initial Release
 

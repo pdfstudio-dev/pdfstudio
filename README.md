@@ -2,15 +2,16 @@
 
 # PDFStudio
 
-**Modern PDF generation library for Node.js with native charts and advanced graphics**
+**Modern PDF generation library for Node.js AND Browsers with native charts and advanced graphics**
 
 [![npm version](https://img.shields.io/npm/v/%40pdfstudio%2Fpdfstudio.svg)](https://www.npmjs.com/package/@pdfstudio/pdfstudio)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D14-green.svg)](https://nodejs.org/)
+[![Browser](https://img.shields.io/badge/Browser-Compatible-success.svg)](BROWSER.md)
 [![Tests](https://img.shields.io/badge/tests-180%20passing-brightgreen.svg)](https://github.com/pdfstudio-dev/pdfstudio)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Examples](#-examples) • [API](#-api-reference) • [Documentation](#-documentation)
+[Features](#-features) • [Quick Start](#-quick-start) • [Browser Support](#-browser-support) • [Examples](#-examples) • [API](#-api-reference) • [Documentation](#-documentation)
 
 ---
 
@@ -31,7 +32,7 @@ PDFStudio is available in multiple programming languages:
 
 ## 🎯 Why PDFStudio?
 
-PDFStudio is the **only Node.js PDF library** that combines professional document generation with **native chart support**. Built from the ground up in TypeScript, it offers 95% parity with PDFKit while adding powerful visualization capabilities.
+PDFStudio is the **only isomorphic PDF library** (Node.js + Browser) that combines professional document generation with **native chart support**. Built from the ground up in TypeScript, it offers 95% parity with PDFKit while adding powerful visualization capabilities and full browser compatibility.
 
 ```typescript
 import { PDFDocument } from '@pdfstudio/pdfstudio'
@@ -59,6 +60,8 @@ doc.save('sales-report.pdf')
 
 | Feature | PDFStudio | PDFKit | jsPDF | pdfmake |
 |---------|-----------|--------|-------|---------|
+| **Browser Support** | ✅ **Native** | ❌ Node only | ✅ | ✅ |
+| **Node.js Support** | ✅ | ✅ | ⚠️ Limited | ✅ |
 | **Native Charts** | ✅ 7 types | ❌ | ❌ | Limited |
 | **TypeScript-First** | ✅ Full types | ⚠️ @types | ⚠️ @types | ⚠️ @types |
 | **Vector Graphics** | ✅ Advanced | ✅ Basic | ⚠️ Limited | ❌ |
@@ -253,6 +256,202 @@ doc.barChart({
 
 doc.save('chart.pdf')
 ```
+
+---
+
+## 🌐 Browser Support
+
+**NEW in v0.2.0**: PDFStudio now works natively in web browsers! Generate PDFs client-side without a server - same powerful API, zero configuration needed.
+
+### Why Browser Support Matters
+
+- ✅ **Offline PDF Generation** - Work without internet or server
+- ✅ **Privacy-First** - Data never leaves the user's device
+- ✅ **Instant Results** - No upload/download delays
+- ✅ **Cost Savings** - Reduce server load and bandwidth
+- ✅ **JAMstack Ready** - Perfect for static site generators
+
+### Quick Browser Example
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PDFStudio Browser Demo</title>
+</head>
+<body>
+  <button onclick="generateInvoice()">Generate Invoice</button>
+
+  <script src="node_modules/@pdfstudio/pdfstudio/dist/pdfstudio.standalone.js"></script>
+  <script>
+    async function generateInvoice() {
+      const { PDFDocument } = PDFStudio;
+
+      const doc = new PDFDocument({
+        title: 'Invoice #12345',
+        author: 'Your Company'
+      });
+
+      // Add header
+      doc.text('INVOICE', 250, 750, 28, 'Helvetica-Bold');
+      doc.text('Invoice #12345', 50, 720, 12);
+
+      // Add table
+      doc.table({
+        headers: ['Item', 'Qty', 'Price', 'Total'],
+        rows: [
+          ['Product A', '2', '$50.00', '$100.00'],
+          ['Product B', '1', '$75.00', '$75.00']
+        ],
+        x: 50,
+        y: 600,
+        width: 500
+      });
+
+      // Add chart
+      doc.barChart({
+        data: [
+          { label: 'Q1', value: 45 },
+          { label: 'Q2', value: 62 },
+          { label: 'Q3', value: 55 },
+          { label: 'Q4', value: 71 }
+        ],
+        x: 80,
+        y: 300,
+        width: 450,
+        height: 200,
+        title: 'Quarterly Sales'
+      });
+
+      // Download PDF
+      await doc.save('invoice-12345.pdf');
+    }
+  </script>
+</body>
+</html>
+```
+
+### Key Browser Features
+
+- ✅ **Zero Server Dependencies** - Everything runs client-side
+- ✅ **100% API Parity** - Identical API to Node.js version
+- ✅ **All Features Supported** - Charts, tables, QR codes, encryption, forms, etc.
+- ✅ **Modern Browsers** - Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+- ✅ **Small Bundle Size** - ~600KB minified (including all features)
+- ✅ **TypeScript Support** - Full type definitions included
+- ✅ **Auto-Download** - Trigger file downloads or get as Blob
+- ✅ **File Input Support** - Load images/fonts from `<input type="file">`
+- ✅ **URL Loading** - Load resources from remote URLs
+- ✅ **Encryption** - MD5-based PDF encryption works in browsers
+
+### Installation Options
+
+#### Option 1: Standalone Script (Quickest)
+
+```html
+<script src="node_modules/@pdfstudio/pdfstudio/dist/pdfstudio.standalone.js"></script>
+<script>
+  const { PDFDocument } = PDFStudio; // Global variable
+</script>
+```
+
+#### Option 2: Module Bundlers (Webpack, Vite, Rollup)
+
+```bash
+npm install @pdfstudio/pdfstudio
+```
+
+```javascript
+import { PDFDocument } from '@pdfstudio/pdfstudio';
+// Automatically uses browser build when detected
+```
+
+#### Option 3: CDN (jsDelivr, unpkg)
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@pdfstudio/pdfstudio/dist/pdfstudio.standalone.js"></script>
+```
+
+### Advanced Browser Examples
+
+```javascript
+const { PDFDocument } = PDFStudio;
+
+// Get PDF as Blob (for uploading, viewing, etc.)
+const doc = new PDFDocument();
+doc.text('Hello World', 100, 100, 24);
+const buffer = await doc.toBuffer();
+const blob = new Blob([buffer], { type: 'application/pdf' });
+
+// View PDF in new tab
+const url = URL.createObjectURL(blob);
+window.open(url, '_blank');
+
+// Upload to server
+const formData = new FormData();
+formData.append('pdf', blob, 'document.pdf');
+await fetch('/api/upload', { method: 'POST', body: formData });
+
+// Load image from File input
+const fileInput = document.getElementById('imageUpload');
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  await doc.image(file, 100, 500, { width: 200 });
+});
+
+// Load custom font from URL
+await doc.registerFont({
+  name: 'CustomFont',
+  source: 'https://example.com/fonts/custom.ttf'
+});
+
+// Generate encrypted PDF
+const secureDoc = new PDFDocument({
+  security: {
+    userPassword: 'user123',
+    ownerPassword: 'owner456',
+    permissions: {
+      printing: 'highResolution',
+      modifying: false,
+      copying: false
+    }
+  }
+});
+```
+
+### Browser vs Node.js Differences
+
+| Feature | Node.js | Browser |
+|---------|---------|---------|
+| **File I/O** | `fs.readFile/writeFile` | `fetch()` / `FileReader` / `Blob` |
+| **Image Processing** | `sharp` (optional) | Canvas API |
+| **Font Loading** | File paths | URLs or File objects |
+| **File Save** | Writes to disk | Triggers download |
+| **Buffer Support** | Native | Polyfilled |
+| **Crypto** | Node crypto | Web Crypto + MD5 polyfill |
+
+### What's New in Browser Support (v0.2.0)
+
+- 🎉 **Complete Platform Abstraction** - Seamless Node.js/Browser compatibility
+- 🔐 **Browser Encryption** - Pure JavaScript MD5 implementation for PDF encryption
+- 📦 **Optimized Build** - Automatic tree-shaking and polyfills via esbuild
+- 🖼️ **Canvas-Based Image Processing** - No dependencies for image handling
+- 📁 **Smart File System** - Automatic detection and adapter pattern
+- 🧪 **Fully Tested** - All 180 tests pass in both environments
+
+### Browser Examples Included
+
+Check out `examples/browser/index.html` for 80+ interactive examples including:
+- Charts (7 types)
+- Tables with styling
+- QR Codes
+- Forms and encryption
+- Image handling
+- Multi-page documents
+- Real-world examples (invoices, reports, certificates)
+
+📖 **[Full Browser Documentation →](BROWSER.md)**
+📖 **[Browser Migration Guide →](BROWSER_MIGRATION.md)**
 
 ### Multi-Page Document
 

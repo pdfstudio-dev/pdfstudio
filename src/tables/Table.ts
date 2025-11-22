@@ -372,6 +372,8 @@ export class Table {
 
   /**
    * Calculate text Y position based on vertical alignment
+   * Note: In PDF coordinates, Y grows upward from bottom.
+   * Text is drawn at the baseline (roughly 30% of fontSize above the bottom of the character)
    */
   private calculateTextY(
     cellY: number,
@@ -379,15 +381,22 @@ export class Table {
     valign: CellVAlign,
     fontSize: number
   ): number {
+    const padding = this.options.cellPadding!
+    // Baseline offset: text baseline is approximately 30% of fontSize from the bottom of the text
+    const baselineOffset = fontSize * 0.3
+
     switch (valign) {
       case 'top':
-        return cellY + cellHeight - fontSize - this.options.cellPadding!
+        // Top of cell, accounting for padding and descenders
+        return cellY + cellHeight - padding - baselineOffset
       case 'middle':
-        return cellY + (cellHeight - fontSize) / 2
+        // Center of cell, adjusted for baseline
+        return cellY + cellHeight / 2 + baselineOffset
       case 'bottom':
-        return cellY + this.options.cellPadding!
+        // Bottom of cell, accounting for padding and baseline
+        return cellY + padding + fontSize - baselineOffset
       default:
-        return cellY + (cellHeight - fontSize) / 2
+        return cellY + cellHeight / 2 + baselineOffset
     }
   }
 
