@@ -11,21 +11,21 @@ const doc1 = new PDFDocument({
   size: 'Letter',
   margins: 50,
   info: {
-    Title: 'Annual Report 2024',
-    Author: 'John Smith',
-    Subject: 'Financial analysis of fiscal year 2024',
-    Keywords: 'finance, report, 2024, analysis'
+    Title: 'PDF UI Studio - Platform Analytics 2024',
+    Author: 'PDF UI Studio Team',
+    Subject: 'User growth and feature adoption analysis',
+    Keywords: 'pdf, analytics, 2024, growth, platform'
   }
 })
 
-doc1.text('ANNUAL REPORT 2024', 100, 700, 24)
-doc1.text('Financial Analysis', 100, 660, 16)
+doc1.text('PDF UI STUDIO - ANALYTICS 2024', 80, 700, 24)
+doc1.text('Platform Performance Report', 100, 660, 16)
 doc1.text('', 100, 620)
 doc1.text('This document contains complete metadata:', 100, 600, 12)
-doc1.text('• Title: Annual Report 2024', 100, 580, 11)
-doc1.text('• Author: John Smith', 100, 560, 11)
-doc1.text('• Subject: Financial analysis of fiscal year 2024', 100, 540, 11)
-doc1.text('• Keywords: finance, report, 2024, analysis', 100, 520, 11)
+doc1.text('• Title: PDF UI Studio - Platform Analytics 2024', 100, 580, 11)
+doc1.text('• Author: PDF UI Studio Team', 100, 560, 11)
+doc1.text('• Subject: User growth and feature adoption analysis', 100, 540, 11)
+doc1.text('• Keywords: pdf, analytics, 2024, growth, platform', 100, 520, 11)
 
 doc1.save('examples-output/metadata-01-basic.pdf')
 console.log('   ✅ examples-output/metadata-01-basic.pdf\n')

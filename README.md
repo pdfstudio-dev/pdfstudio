@@ -32,7 +32,7 @@ PDFStudio is available in multiple programming languages:
 
 ## 🎯 Why PDFStudio?
 
-PDFStudio is the **only isomorphic PDF library** (Node.js + Browser) that combines professional document generation with **native chart support**. Built from the ground up in TypeScript, it offers 95% parity with PDFKit while adding powerful visualization capabilities and full browser compatibility.
+PDFStudio is the **only isomorphic PDF library** (Node.js + Browser) that combines professional document generation with **native chart support**. Built from the ground up in TypeScript, it delivers powerful visualization capabilities, advanced graphics, and full browser compatibility out of the box.
 
 ```typescript
 import { PDFDocument } from '@pdfstudio/pdfstudio'
@@ -58,15 +58,18 @@ doc.save('sales-report.pdf')
 
 ### Key Differentiators
 
-| Feature | PDFStudio | PDFKit | jsPDF | pdfmake |
-|---------|-----------|--------|-------|---------|
+| Feature | PDFStudio v0.3.0 | PDFKit | jsPDF | pdfmake |
+|---------|------------------|--------|-------|---------|
 | **Browser Support** | ✅ **Native** | ❌ Node only | ✅ | ✅ |
 | **Node.js Support** | ✅ | ✅ | ⚠️ Limited | ✅ |
 | **Native Charts** | ✅ 7 types | ❌ | ❌ | Limited |
 | **TypeScript-First** | ✅ Full types | ⚠️ @types | ⚠️ @types | ⚠️ @types |
 | **Vector Graphics** | ✅ Advanced | ✅ Basic | ⚠️ Limited | ❌ |
+| **Text Flow (moveDown/Up)** | ✅ | ✅ | ❌ | ❌ |
+| **Rounded Rectangles** | ✅ | ✅ | ⚠️ Limited | ❌ |
+| **Multi-Column Text** | ✅ | ✅ | ❌ | ⚠️ Limited |
+| **Bulleted Lists** | ✅ 8 styles | ✅ | ❌ | ✅ |
 | **Global Config** | ✅ Unique | ❌ | ❌ | ❌ |
-| **Latin American Formats** | ✅ Letter, Legal | ✅ | ✅ | ✅ |
 | **Professional Forms** | ✅ AcroForms | ⚠️ Basic | ❌ | ❌ |
 | **QR Codes** | ✅ 9 data types | ❌ | ⚠️ Plugin | ❌ |
 | **Active Development** | ✅ 2025 | ⚠️ Slow | ✅ | ✅ |
@@ -111,10 +114,63 @@ doc.save('sales-report.pdf')
 - Clickable hyperlinks
 - Fine spacing control (character, word, line)
 - Paragraph formatting (indent, line gap)
+- **🆕 Text rotation** at any angle (v0.3.0)
+- **🆕 Multi-column layout** with configurable gap (v0.3.0)
+- **🆕 Text flow control** with moveDown()/moveUp() (v0.3.0)
+- **🆕 Named destinations & internal links** (v0.3.0)
 - Custom fonts (TrueType/OpenType)
 - Font optimization (ToUnicode CMap, compression, subsetting)
 - 14 base fonts + unlimited custom fonts
 - 5 encodings (WinAnsi, MacRoman, Standard, etc.)
+
+</details>
+
+<details>
+<summary><b>📝 Professional Text Features (v0.3.0)</b></summary>
+
+**🎉 NEW**: Industry-standard text layout and advanced typography
+
+- **`moveDown([lines])`** - Natural text flow control, move cursor down
+- **`moveUp([lines])`** - Move cursor up by lines
+- **`getCurrentY()` / `getCurrentX()`** - Get current position
+- **`roundedRect(x, y, w, h, radius)`** - Rectangles with rounded corners
+- **Text Rotation** - `rotation` option for rotating text at any angle
+- **Multi-Column Text** - `columns` and `columnGap` options for newspaper-style layouts
+- **`list(items, x, y, options)`** - Bulleted & numbered lists with 8 styles:
+  - Bullets: `disc` (•), `circle` (◦), `square` (▪)
+  - Numbers: `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman`, `upper-roman`
+  - Custom: any string ('★', '→', etc.)
+- **Named Destinations** - `destination` option to create anchors
+- **GoTo Links** - `goTo` option for internal navigation
+
+```typescript
+// Text flow with cursor control
+doc.text('First line', 100, 750, 14)
+   .moveDown()
+   .text('Second line', 100, doc.getCurrentY(), 12)
+
+// Rounded rectangles
+doc.roundedRect(100, 100, 200, 150, 15).stroke()
+
+// Rotated text
+doc.text('Rotated 45°', 100, 550, 12, { rotation: 45 })
+
+// Multi-column layout
+doc.text(longText, 100, 480, 10, {
+  width: 400,
+  columns: 2,
+  columnGap: 20
+})
+
+// Bulleted list
+doc.list(['Item 1', 'Item 2', 'Item 3'], 100, 400, {
+  bulletStyle: 'disc'
+})
+
+// Internal navigation
+doc.text('Chapter 1', 100, 750, 16, { destination: 'chapter1' })
+doc.text('Go to Chapter 1', 100, 500, 12, { goTo: 'chapter1' })
+```
 
 </details>
 
@@ -256,6 +312,24 @@ doc.barChart({
 
 doc.save('chart.pdf')
 ```
+
+---
+
+<div align="center">
+
+## 🎨 **Prototype PDFs Faster with Visual Editor**
+
+[![PDF UI Studio - Visual PDF Editor](https://img.shields.io/badge/🎨_Try_Free-PDF_UI_Studio-7C3AED?style=for-the-badge&labelColor=1F2937)](https://pdfuistudio.io/?ref=pdfstudio-npm)
+
+**Design PDFs visually with drag & drop • Export production-ready JavaScript code**
+
+Stop writing code from scratch—design your PDF layouts visually and export PDFKit-compatible JavaScript instantly. Perfect for prototyping invoices, certificates, and reports.
+
+✨ **AI-powered templates** • 🎯 **Real-time preview** • 💻 **Exports clean JS code** • 🚀 **Free to start**
+
+### [**→ Try Visual Editor (Free)**](https://pdfuistudio.io/?ref=pdfstudio-npm)
+
+</div>
 
 ---
 

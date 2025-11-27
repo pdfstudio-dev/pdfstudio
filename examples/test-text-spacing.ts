@@ -117,13 +117,13 @@ doc.text('This text combines indent, line gap, character spacing, and justificat
 
 // Example 7: Long URL with word wrap
 doc.text('7. Long Links with Wrap:', 50, 130, 14)
-doc.text('For more information, please visit our documentation at https://docs.example.com/api/v2/documentation or contact support.', {
+doc.text('For more information, please visit our documentation at https://pdfuistudio.io/docs or contact pdfstudio@ideas2code.dev for support.', {
   x: 50,
   y: 110,
   fontSize: 10,
   width: 500,
   align: 'left',
-  link: 'https://docs.example.com',
+  link: 'https://pdfuistudio.io/docs',
   underline: true
 })
 

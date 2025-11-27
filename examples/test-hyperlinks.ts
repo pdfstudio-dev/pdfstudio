@@ -39,10 +39,10 @@ function example1() {
     height: 18
   })
 
-  // Link 3: Anthropic
-  doc.text('Anthropic', 100, 620, 14)
+  // Link 3: Mozilla
+  doc.text('Mozilla', 100, 620, 14)
   doc.addExternalLink({
-    url: 'https://www.anthropic.com',
+    url: 'https://www.mozilla.org',
     x: 100,
     y: 615,
     width: 80,

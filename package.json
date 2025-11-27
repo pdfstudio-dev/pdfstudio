@@ -1,7 +1,7 @@
 {
   "name": "@pdfstudio/pdfstudio",
-  "version": "0.2.0",
-  "description": "Modern PDF generation library for Node.js and Browsers with native charts, tables, and advanced graphics. 100% API parity across platforms.",
+  "version": "0.3.0",
+  "description": "Professional PDF generation library for Node.js and Browsers. Features native charts, advanced vector graphics, QR codes, interactive forms, and complete TypeScript support.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "browser": "dist/pdfstudio.standalone.js",
@@ -57,7 +57,7 @@
     "offline-pdf",
     "jamstack"
   ],
-  "author": "ideas2code <hello@ideas2code.dev> (https://github.com/pdfstudio-dev)",
+  "author": "ideas2code <pdfstudio@ideas2code.dev> (https://github.com/pdfstudio-dev)",
   "license": "MIT",
   "repository": {
     "type": "git",

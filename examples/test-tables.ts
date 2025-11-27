@@ -19,12 +19,12 @@ doc.table({
   x: 50,
   y: 540,
   width: 500,
-  headers: ['Product', 'Price', 'Quantity', 'Total'],
+  headers: ['Feature', 'Free', 'Professional', 'Lifetime'],
   rows: [
-    ['Widget A', '$10.00', '5', '$50.00'],
-    ['Widget B', '$15.00', '3', '$45.00'],
-    ['Widget C', '$20.00', '2', '$40.00'],
-    ['Widget D', '$25.00', '1', '$25.00']
+    ['Visual Editor', '✓', '✓', '✓'],
+    ['AI Templates', '3', 'Unlimited', 'Unlimited'],
+    ['Code Export', '✓', '✓', '✓'],
+    ['Real-time Preview', '✓', '✓', '✓']
   ]
 })
 
@@ -37,14 +37,14 @@ doc.table({
   x: 50,
   y: 340,
   width: 500,
-  headers: ['Name', 'Department', 'Salary'],
+  headers: ['Plan', 'Price', 'Best For'],
   rows: [
-    ['John Doe', 'Engineering', '$120,000'],
-    ['Jane Smith', 'Marketing', '$95,000'],
-    ['Bob Johnson', 'Sales', '$85,000']
+    ['Free', '$0/mo', 'Trying PDF UI Studio'],
+    ['Professional', '$7/mo', 'Regular PDF creation'],
+    ['Lifetime', '$100 once', 'Power users & agencies']
   ],
   headerStyle: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#7C3AED',
     textColor: '#ffffff',
     fontSize: 12,
     bold: true,
@@ -140,32 +140,32 @@ doc.table({
   y: 80,
   width: 500,
   columns: [
-    { header: 'Product Name', width: 180, align: 'left' },
+    { header: 'Feature', width: 180, align: 'left' },
     { header: 'Category', width: 120, align: 'center' },
-    { header: 'Stock', width: 80, align: 'center' },
-    { header: 'Price', width: 120, align: 'right' }
+    { header: 'Usage', width: 80, align: 'center' },
+    { header: 'Status', width: 120, align: 'right' }
   ],
   rows: [
-    ['Premium Laptop', 'Electronics', '15', '$1,299.99'],
-    ['Wireless Mouse', 'Accessories', '50', '$29.99'],
+    ['Visual Editor', 'Core', '98%', 'Active'],
+    ['AI Templates', 'Premium', '87%', 'Active'],
     [
       {
-        content: 'Gaming Keyboard',
-        textColor: '#e74c3c'
+        content: 'Code Export',
+        textColor: '#7C3AED'
       },
-      'Accessories',
+      'Core',
       {
-        content: '0',
-        backgroundColor: '#e74c3c',
+        content: '100%',
+        backgroundColor: '#7C3AED',
         textColor: '#ffffff'
       },
-      '$149.99'
+      'Popular'
     ],
-    ['USB-C Cable', 'Accessories', '200', '$14.99'],
-    ['Monitor 27"', 'Electronics', '8', '$399.99']
+    ['Real-time Preview', 'Core', '95%', 'Active'],
+    ['Drag & Drop', 'Core', '99%', 'Active']
   ],
   headerStyle: {
-    backgroundColor: '#34495e',
+    backgroundColor: '#7C3AED',
     textColor: '#ffffff',
     fontSize: 11,
     height: 32

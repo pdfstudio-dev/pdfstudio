@@ -7,33 +7,33 @@ const doc = new PDFDocument()
 // ======================
 // PÁGINA 1: Cover
 // ======================
-doc.text('PDFStudio', 250, 500, 36)
-doc.text('Report Annual 2024', 200, 450, 24)
-doc.text('Analysis de Sales y Rendimiento', 150, 400, 16)
-doc.text('Page 1 de 5', 260, 50, 10)
+doc.text('PDF UI Studio', 230, 500, 36)
+doc.text('Platform Analytics 2024', 190, 450, 24)
+doc.text('User Growth & Feature Adoption Report', 140, 400, 16)
+doc.text('Page 1 of 5', 260, 50, 10)
 
 // ======================
-// PÁGINA 2: Sales Monthlyes
+// PÁGINA 2: Monthly User Growth
 // ======================
 doc.addPage()
-doc.text('Sales Monthlyes - 2024', 200, 750, 20)
-doc.text('Page 2 de 5', 260, 50, 10)
+doc.text('Monthly User Sign-Ups - 2024', 180, 750, 20)
+doc.text('Page 2 of 5', 260, 50, 10)
 
 doc.barChart({
   data: [
-    { label: 'Ene', value: 145 },
-    { label: 'Feb', value: 162 },
-    { label: 'Mar', value: 138 },
-    { label: 'Abr', value: 171 },
-    { label: 'May', value: 155 },
-    { label: 'Jun', value: 168 }
+    { label: 'Jan', value: 245 },
+    { label: 'Feb', value: 362 },
+    { label: 'Mar', value: 438 },
+    { label: 'Apr', value: 571 },
+    { label: 'May', value: 655 },
+    { label: 'Jun', value: 768 }
   ],
   x: 50,
   y: 350,
   width: 500,
   height: 300,
-  barColors: ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'],
-  title: 'Sales por Mes (Primer Semestre)',
+  barColors: ['#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95', '#3B0764', '#2E1065'],
+  title: 'New Users per Month (First Half)',
   showAxes: true,
   showGrid: true,
   showLabels: true,
@@ -41,32 +41,32 @@ doc.barChart({
 })
 
 // ======================
-// PÁGINA 3: Comparison Quarterly
+// PÁGINA 3: Quarterly Platform Growth
 // ======================
 doc.addPage()
-doc.text('Comparison Annual por Trimestre', 160, 750, 20)
-doc.text('Page 3 de 5', 260, 50, 10)
+doc.text('Platform Growth Comparison by Quarter', 140, 750, 20)
+doc.text('Page 3 of 5', 260, 50, 10)
 
 doc.groupedBarChart({
   data: [
     {
       label: 'Q1',
-      values: [45, 62, 55],
+      values: [1045, 1862, 2755],
       series: ['2022', '2023', '2024']
     },
     {
       label: 'Q2',
-      values: [52, 71, 68],
+      values: [1252, 2071, 3168],
       series: ['2022', '2023', '2024']
     },
     {
       label: 'Q3',
-      values: [48, 65, 72],
+      values: [1448, 2365, 3572],
       series: ['2022', '2023', '2024']
     },
     {
       label: 'Q4',
-      values: [68, 85, 88],
+      values: [1768, 2785, 4088],
       series: ['2022', '2023', '2024']
     }
   ],
@@ -74,8 +74,8 @@ doc.groupedBarChart({
   y: 350,
   width: 500,
   height: 300,
-  colors: ['#e74c3c', '#3498db', '#2ecc71'],
-  title: 'Comparison 2022-2024',
+  colors: ['#7C3AED', '#6D28D9', '#5B21B6'],
+  title: 'Active Users Growth 2022-2024',
   showAxes: true,
   showGrid: true,
   showLabels: true,
@@ -86,41 +86,41 @@ doc.groupedBarChart({
 })
 
 // ======================
-// PÁGINA 4: Analysis Financial
+// PÁGINA 4: Feature Usage Analysis
 // ======================
 doc.addPage()
-doc.text('Analysis Financial Quarterly', 180, 750, 20)
-doc.text('Page 4 de 5', 260, 50, 10)
+doc.text('Quarterly Feature Adoption', 180, 750, 20)
+doc.text('Page 4 of 5', 260, 50, 10)
 
 doc.stackedBarChart({
   data: [
     {
       label: 'Q1',
-      values: [145, 85, 60],
-      series: ['Ingresos', 'Costos', 'Ganancias']
+      values: [2145, 1885, 1660],
+      series: ['Visual Editor', 'AI Templates', 'Code Export']
     },
     {
       label: 'Q2',
-      values: [162, 90, 72],
-      series: ['Ingresos', 'Costos', 'Ganancias']
+      values: [3162, 2590, 2172],
+      series: ['Visual Editor', 'AI Templates', 'Code Export']
     },
     {
       label: 'Q3',
-      values: [155, 88, 67],
-      series: ['Ingresos', 'Costos', 'Ganancias']
+      values: [4155, 3288, 2867],
+      series: ['Visual Editor', 'AI Templates', 'Code Export']
     },
     {
       label: 'Q4',
-      values: [178, 95, 83],
-      series: ['Ingresos', 'Costos', 'Ganancias']
+      values: [5378, 4195, 3583],
+      series: ['Visual Editor', 'AI Templates', 'Code Export']
     }
   ],
   x: 50,
   y: 350,
   width: 500,
   height: 300,
-  colors: ['#3498db', '#e74c3c', '#2ecc71'],
-  title: 'Desglose Financial 2024',
+  colors: ['#7C3AED', '#6D28D9', '#5B21B6'],
+  title: 'Feature Usage Breakdown 2024',
   showAxes: true,
   showGrid: true,
   showLabels: true,
@@ -131,33 +131,33 @@ doc.stackedBarChart({
 })
 
 // ======================
-// PÁGINA 5: Summary Final
+// PÁGINA 5: Executive Summary
 // ======================
 doc.addPage()
-doc.text('Summary Executive', 220, 750, 20)
-doc.text('Page 5 de 5', 260, 50, 10)
+doc.text('Executive Summary', 220, 750, 20)
+doc.text('Page 5 of 5', 260, 50, 10)
 
-doc.text('Summary del Año 2024:', 50, 650, 16)
-doc.text('• Total de sales: $640,000', 70, 620, 12)
-doc.text('• Crecimiento vs 2023: +15%', 70, 600, 12)
-doc.text('• Mejor trimestre: Q4 ($178,000)', 70, 580, 12)
-doc.text('• Mejor mes: Abril ($171,000)', 70, 560, 12)
+doc.text('2024 Year Summary:', 50, 650, 16)
+doc.text('• Total Active Users: 12,450', 70, 620, 12)
+doc.text('• Growth vs 2023: +68%', 70, 600, 12)
+doc.text('• Best Quarter: Q4 (4,088 new users)', 70, 580, 12)
+doc.text('• PDFs Generated: 156,000+', 70, 560, 12)
 
-doc.text('Rendimiento por Departamento:', 50, 510, 16)
+doc.text('Plan Distribution:', 50, 510, 16)
 
 doc.barChart({
   data: [
-    { label: 'Sales', value: 92 },
-    { label: 'Marketing', value: 85 },
-    { label: 'Desarrollo', value: 88 },
-    { label: 'Soporte', value: 78 }
+    { label: 'Free', value: 7892 },
+    { label: 'Professional', value: 3285 },
+    { label: 'Annual', value: 988 },
+    { label: 'Lifetime', value: 285 }
   ],
   x: 50,
   y: 180,
   width: 500,
   height: 250,
-  barColors: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'],
-  title: 'Eficiencia por Área (%)',
+  barColors: ['#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95'],
+  title: 'Users by Plan Type',
   showAxes: true,
   showGrid: true,
   showLabels: true,

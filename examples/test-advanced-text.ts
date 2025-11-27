@@ -70,11 +70,11 @@ doc.text('This text has been struck through, useful for showing deletions.', {
 
 // Example 7: Links
 doc.text('7. Clickeable Links:', 50, 280, 14)
-doc.text('Visit Anthropic at https://anthropic.com for more information.', {
+doc.text('Visit GitHub at https://github.com for more information.', {
   x: 50,
   y: 260,
   fontSize: 11,
-  link: 'https://anthropic.com',
+  link: 'https://github.com',
   underline: true
 })
 

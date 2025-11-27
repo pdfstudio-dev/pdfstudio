@@ -102,3 +102,11 @@ export {
   // Constants
   PAGE_SIZES
 } from './types'
+
+// Unicode utilities
+export {
+  substituteUnicode,
+  detectUnsupportedChars,
+  getSubstitution,
+  UNICODE_SUBSTITUTIONS
+} from './utils/unicode-substitution'

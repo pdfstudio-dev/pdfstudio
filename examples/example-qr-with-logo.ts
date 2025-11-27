@@ -55,7 +55,7 @@ async function main() {
         organization: 'Acme Corporation',
         title: 'CEO',
         phone: '+1-555-123-4567',
-        email: 'alice.cooper@acme.com',
+        email: 'pdfstudio@ideas2code.dev',
         url: 'https://acme.com'
       }
     },

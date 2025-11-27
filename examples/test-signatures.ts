@@ -32,7 +32,7 @@ doc1.addSignatureField({
   height: 60,
   reason: 'I approve this document',
   location: 'New York, NY',
-  contactInfo: 'signer@example.com',
+  contactInfo: 'pdfstudio@ideas2code.dev',
   borderColor: [0, 0, 0.8] as Color,
   borderWidth: 2
 })

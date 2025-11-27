@@ -47,12 +47,12 @@ async function createExample1() {
     x: 200,
     y: 550,
     size: 150,
-    data: 'https://github.com/anthropics/claude-code'
+    data: 'https://github.com/pdfstudio-dev/pdfstudio'
   })
 
   // Label
   doc.text('GitHub Repository', 200, 520, 10)
-  doc.text('https://github.com/anthropics/claude-code', 50, 500, 8)
+  doc.text('https://github.com/pdfstudio-dev/pdfstudio', 50, 500, 8)
 
   doc.save('examples-output/qr-1-basic-url.pdf')
   console.log('✓ Example 1: Basic URL QR code created')

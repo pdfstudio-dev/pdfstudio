@@ -1,11 +1,12 @@
 import * as pako from 'pako'
 import * as crypto from 'crypto'
-import { PageNumberOptions, PageNumberFormat, PDFEncoding, PDFBaseFont, FontOptions, DocumentInfo, PDFSecurityOptions, ImageInfo, ImageOptions, TextOptions, TextAlign, Color, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, BezierCurve, Point, HeaderFooterOptions, HeaderOptions, FooterOptions, HeaderFooterContent, PageRule, Gradient, LinearGradientOptions, RadialGradientOptions, ColorStop, TilingPatternOptions, BookmarkOptions, BookmarkDestination, FormOptions, FormField, SignatureFieldOptions, PDFAOptions, Annotation, Watermark, Link, PageRotation, ExtendedMetadata, CompressionOptions, FileAttachment, FileAttachmentAnnotation, CustomFont, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, QRCodeOptions } from '../types'
+import { PageNumberOptions, PageNumberFormat, PDFEncoding, PDFBaseFont, FontOptions, DocumentInfo, PDFSecurityOptions, ImageInfo, ImageOptions, TextOptions, TextAlign, Color, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, BezierCurve, Point, HeaderFooterOptions, HeaderOptions, FooterOptions, HeaderFooterContent, PageRule, Gradient, LinearGradientOptions, RadialGradientOptions, ColorStop, TilingPatternOptions, BookmarkOptions, BookmarkDestination, FormOptions, FormField, SignatureFieldOptions, PDFAOptions, Annotation, Watermark, Link, PageRotation, ExtendedMetadata, CompressionOptions, FileAttachment, FileAttachmentAnnotation, CustomFont, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, QRCodeOptions, NamedDestination, GoToLink, ListOptions, BulletStyle } from '../types'
 import { PDFEncryption } from '../security/PDFEncryption'
 import { ImageParser } from '../images/ImageParser'
 import { TextMeasure } from '../text/TextMeasure'
 import { generateXMPMetadata } from '../utils/xmp'
 import { FontManager, FontInfo } from '../fonts/FontManager'
+import { substituteUnicode } from '../utils/unicode-substitution'
 import { SVGPathConverter } from '../utils/SVGPathParser'
 import { QRCodeGenerator } from '../qrcode/QRCodeGenerator'
 import { CompressionError } from '../errors'
@@ -92,9 +93,11 @@ export class PDFWriter {
   private enableXMPMetadata: boolean = false  // Enable XMP metadata stream (independent of PDF/A)
   private compressionOptions: CompressionOptions = {}  // Compression and optimization options
   private attachments: FileAttachment[] = []  // Document-level file attachments
+  private namedDestinations: Map<string, NamedDestination> = new Map()  // Named destinations for goTo links
   private currentX: number = 0
   private currentY: number = 0
   private currentFontSize: number = 12
+  private currentLineHeight: number = 0  // Track line height for moveDown/moveUp
   private textContinued: boolean = false
 
   // Graphics state management for transformations
@@ -211,9 +214,13 @@ export class PDFWriter {
 
   /**
    * Escape special characters and encode accented characters for PDF
+   * Also substitutes Unicode characters not supported in WinAnsiEncoding
    */
   private escapePDFString(text: string | undefined): string {
     if (!text) return ''
+
+    // First, substitute unsupported Unicode characters
+    text = substituteUnicode(text)
 
     let result = ''
 
@@ -226,7 +233,7 @@ export class PDFWriter {
         result += '\\('
       } else if (char === ')') {
         result += '\\)'
-      } else if (char === '\\') {
+      } else if (char === '\\'){
         result += '\\\\'
       } else if (code < 32 || code > 126) {
         // Non-ASCII character - use octal notation
@@ -609,6 +616,98 @@ export class PDFWriter {
    */
   rect(x: number, y: number, width: number, height: number): void {
     this.addContent(`${x} ${y} ${width} ${height} re`)
+  }
+
+  /**
+   * Draw a rectangle with rounded corners
+   * Compatible with PDFKit API
+   *
+   * @param x X coordinate of the bottom-left corner
+   * @param y Y coordinate of the bottom-left corner
+   * @param width Width of the rectangle
+   * @param height Height of the rectangle
+   * @param cornerRadius Radius of the rounded corners (can be a single value or [rx, ry])
+   *
+   * @example
+   * ```typescript
+   * // Rectangle with 10pt corner radius
+   * doc.roundedRect(100, 100, 200, 150, 10)
+   *    .stroke()
+   *
+   * // Different horizontal and vertical radii
+   * doc.roundedRect(100, 300, 200, 150, [15, 8])
+   *    .fillAndStroke('#3498db', '#2c3e50')
+   * ```
+   */
+  roundedRect(x: number, y: number, width: number, height: number, cornerRadius: number | [number, number]): void {
+    // Parse corner radius
+    let rx: number, ry: number
+    if (typeof cornerRadius === 'number') {
+      rx = ry = cornerRadius
+    } else {
+      [rx, ry] = cornerRadius
+    }
+
+    // Clamp corner radius to not exceed half the dimensions
+    rx = Math.min(rx, width / 2)
+    ry = Math.min(ry, height / 2)
+
+    // Calculate the magic number for bezier curves that approximate circular arcs
+    // This is approximately 0.5522847498 for a good circle approximation
+    const k = 0.5522847498
+
+    // Control point offsets for bezier curves
+    const rxk = rx * k
+    const ryk = ry * k
+
+    // Build the path for a rounded rectangle
+    // Start from bottom-left, move clockwise
+
+    // Move to bottom-left corner (after the curve)
+    this.moveTo(x + rx, y)
+
+    // Bottom edge
+    this.lineTo(x + width - rx, y)
+
+    // Bottom-right corner
+    this.bezierCurveTo(
+      x + width - rx + rxk, y,           // Control point 1
+      x + width, y + ry - ryk,           // Control point 2
+      x + width, y + ry                   // End point
+    )
+
+    // Right edge
+    this.lineTo(x + width, y + height - ry)
+
+    // Top-right corner
+    this.bezierCurveTo(
+      x + width, y + height - ry + ryk,   // Control point 1
+      x + width - rx + rxk, y + height,   // Control point 2
+      x + width - rx, y + height          // End point
+    )
+
+    // Top edge
+    this.lineTo(x + rx, y + height)
+
+    // Top-left corner
+    this.bezierCurveTo(
+      x + rx - rxk, y + height,           // Control point 1
+      x, y + height - ry + ryk,           // Control point 2
+      x, y + height - ry                   // End point
+    )
+
+    // Left edge
+    this.lineTo(x, y + ry)
+
+    // Bottom-left corner
+    this.bezierCurveTo(
+      x, y + ry - ryk,                    // Control point 1
+      x + rx - rxk, y,                    // Control point 2
+      x + rx, y                            // End point (back to start)
+    )
+
+    // Close the path
+    this.closePath()
   }
 
   /**
@@ -1480,14 +1579,72 @@ export class PDFWriter {
     const lineGap = options.lineGap || 0
     const lineHeight = options.lineHeight || TextMeasure.calculateLineHeight(fontSize, lineGap)
 
+    // Apply rotation if specified
+    const hasRotation = options.rotation !== undefined && options.rotation !== 0
+    if (hasRotation) {
+      this.saveGraphicsState()
+      // Translate to rotation point (x, y), rotate, then translate back
+      const rad = (options.rotation! * Math.PI) / 180
+      const cos = Math.cos(rad)
+      const sin = Math.sin(rad)
+      // Apply transformation matrix: translate, rotate, translate back
+      // This rotates around the point (x, y)
+      this.transform(cos, sin, -sin, cos, x - x * cos + y * sin, y - x * sin - y * cos)
+    }
+
+    // Handle multi-column layout
+    const columns = options.columns || 1
+    const columnGap = options.columnGap !== undefined ? options.columnGap : 18  // Default 18pt (1/4 inch)
+
+    let columnWidth: number
+    if (columns > 1 && width) {
+      // Calculate width per column
+      const totalGapWidth = columnGap * (columns - 1)
+      columnWidth = (width - totalGapWidth) / columns
+    } else {
+      columnWidth = width || 0
+    }
+
     // Calculate lines (with word wrap if width is specified)
     let lines: string[]
-    if (width) {
+    if (columnWidth > 0) {
+      lines = TextMeasure.wrapText(text, columnWidth, fontSize, baseFont)
+    } else if (width) {
       lines = TextMeasure.wrapText(text, width, fontSize, baseFont)
     } else {
       lines = [text]
     }
 
+    // For multi-column layout, split lines into columns
+    if (columns > 1 && options.height) {
+      const linesPerColumn = Math.floor(options.height / lineHeight)
+
+      // Render each column
+      for (let col = 0; col < columns; col++) {
+        const startLine = col * linesPerColumn
+        const endLine = Math.min(startLine + linesPerColumn, lines.length)
+        const columnLines = lines.slice(startLine, endLine)
+
+        if (columnLines.length === 0) break  // No more content
+
+        const columnX = x + col * (columnWidth + columnGap)
+        this.renderColumnLines(columnLines, columnX, y, columnWidth, fontSize, baseFont, fontId, options, lineHeight)
+      }
+
+      // Update current position
+      this.currentX = x
+      this.currentY = y - options.height
+      this.currentFontSize = fontSize
+      this.currentLineHeight = lineHeight
+
+      // Restore graphics state if rotation was applied
+      if (hasRotation) {
+        this.restoreGraphicsState()
+      }
+      return
+    }
+
+    // Single column rendering (original logic)
     // Calculate starting Y position based on vertical alignment
     let currentY = y
     if (options.valign && options.height) {
@@ -1584,6 +1741,32 @@ export class PDFWriter {
         })
       }
 
+      // Add goTo link annotation if requested (PDFKit compatible)
+      if (options.goTo) {
+        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont)
+        const goToLink: GoToLink = {
+          type: 'goto',
+          destination: options.goTo,
+          page: this.currentPageIndex,
+          x: lineX,
+          y: currentY,
+          width: lineWidth,
+          height: fontSize
+        }
+        this.annotationManager.addLink(goToLink)
+      }
+
+      // Create named destination if requested (PDFKit compatible)
+      if (options.destination && i === 0) {  // Only for first line
+        this.namedDestinations.set(options.destination, {
+          name: options.destination,
+          page: this.currentPageIndex,
+          x: lineX,
+          y: currentY,
+          fit: 'XYZ'
+        })
+      }
+
       currentY -= lineHeight
     }
 
@@ -1591,6 +1774,101 @@ export class PDFWriter {
     this.currentX = x
     this.currentY = currentY
     this.currentFontSize = fontSize
+    this.currentLineHeight = lineHeight  // Track for moveDown/moveUp
+
+    // Restore graphics state if rotation was applied
+    if (hasRotation) {
+      this.restoreGraphicsState()
+    }
+  }
+
+  /**
+   * Render lines for a single column (helper for multi-column layout)
+   */
+  private renderColumnLines(
+    lines: string[],
+    x: number,
+    y: number,
+    columnWidth: number,
+    fontSize: number,
+    font: PDFBaseFont,
+    fontId: string,
+    options: TextOptions,
+    lineHeight: number
+  ): void {
+    const align = options.align || 'left'
+    let currentY = y
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      let lineX = x
+
+      // Apply first line indent only to first line of first column
+      if (i === 0 && options.indent && x === (options.x || 0)) {
+        lineX += options.indent
+      }
+
+      // Calculate X position based on alignment
+      if (align !== 'left' && columnWidth) {
+        const lineWidth = TextMeasure.measureText(line, fontSize, font)
+
+        switch (align) {
+          case 'center':
+            lineX = x + (columnWidth - lineWidth) / 2
+            break
+          case 'right':
+            lineX = x + columnWidth - lineWidth
+            break
+          case 'justify':
+            // Justify only if not the last line and line has multiple words
+            if (i < lines.length - 1 && line.trim().includes(' ')) {
+              this.renderJustifiedLine(line, x, currentY, columnWidth, fontSize, font, fontId)
+              currentY -= lineHeight
+              continue
+            }
+            break
+        }
+      }
+
+      // Render the line
+      this.addContent('BT')
+      this.addContent(`/${fontId} ${fontSize} Tf`)
+
+      // Apply character and word spacing if specified
+      if (options.characterSpacing) {
+        this.addContent(`${options.characterSpacing} Tc`)
+      }
+      if (options.wordSpacing) {
+        this.addContent(`${options.wordSpacing} Tw`)
+      }
+
+      this.addContent(`${lineX} ${currentY} Td`)
+      const escapedText = this.escapePDFString(line)
+      this.addContent(`(${escapedText}) Tj`)
+      this.addContent('ET')
+
+      // Draw underline if requested
+      if (options.underline) {
+        const lineWidth = TextMeasure.measureText(line, fontSize, font)
+        const underlineY = currentY - fontSize * 0.15
+        this.setLineWidth(fontSize * 0.05)
+        this.moveTo(lineX, underlineY)
+        this.lineTo(lineX + lineWidth, underlineY)
+        this.stroke()
+      }
+
+      // Draw strikethrough if requested
+      if (options.strike) {
+        const lineWidth = TextMeasure.measureText(line, fontSize, font)
+        const strikeY = currentY + fontSize * 0.3
+        this.setLineWidth(fontSize * 0.05)
+        this.moveTo(lineX, strikeY)
+        this.lineTo(lineX + lineWidth, strikeY)
+        this.stroke()
+      }
+
+      currentY -= lineHeight
+    }
   }
 
   /**
@@ -1675,6 +1953,204 @@ export class PDFWriter {
   heightOfString(text: string = '', fontSize?: number, lineGap: number = 0): number {
     const size = fontSize !== undefined ? fontSize : this.currentFontSize
     return TextMeasure.calculateLineHeight(size, lineGap)
+  }
+
+  /**
+   * Render a bulleted/numbered list (PDFKit compatible)
+   *
+   * @param items Array of strings to render as list items
+   * @param x X position (optional, uses current X if not specified)
+   * @param y Y position (optional, uses current Y if not specified)
+   * @param options List options
+   *
+   * @example
+   * ```typescript
+   * doc.list(['First item', 'Second item', 'Third item'], 100, 700, {
+   *   bulletStyle: 'disc',
+   *   fontSize: 12
+   * })
+   *
+   * // Numbered list
+   * doc.list(['Step 1', 'Step 2', 'Step 3'], 100, 600, {
+   *   bulletStyle: 'decimal'
+   * })
+   * ```
+   */
+  list(items: string[], x?: number, y?: number, options: ListOptions = {}): void {
+    const startX = x !== undefined ? x : this.currentX
+    const startY = y !== undefined ? y : this.currentY
+    const fontSize = options.fontSize || this.currentFontSize
+    const font = options.font || this.baseFont
+    const fontId = this.currentCustomFont || this.getFontId(font)
+    const lineGap = options.lineGap || 0
+    const lineHeight = TextMeasure.calculateLineHeight(fontSize, lineGap)
+    const bulletIndent = options.bulletIndent || 0
+    const textIndent = options.textIndent || 20
+    const listGap = options.listGap || 5
+    const bulletStyle = options.bulletStyle || 'disc'
+    const width = options.width
+
+    let currentY = startY
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const bulletX = startX + bulletIndent
+      const textX = startX + textIndent  // Text starts at textIndent, not bulletGap
+
+      // Get bullet character/text
+      const bullet = this.getBulletText(i + 1, bulletStyle)
+
+      // Render bullet
+      this.addContent('BT')
+      this.addContent(`/${fontId} ${fontSize} Tf`)
+      this.addContent(`${bulletX} ${currentY} Td`)
+      const escapedBullet = this.escapePDFString(bullet)
+      this.addContent(`(${escapedBullet}) Tj`)
+      this.addContent('ET')
+
+      // Render item text (with word wrap if width specified)
+      const textWidth = width ? width - textIndent : undefined
+      let lines: string[]
+      if (textWidth) {
+        lines = TextMeasure.wrapText(item, textWidth, fontSize, font)
+      } else {
+        lines = [item]
+      }
+
+      // Render text lines
+      for (let j = 0; j < lines.length; j++) {
+        const line = lines[j]
+        const lineY = currentY - (j * lineHeight)
+        this.addContent('BT')
+        this.addContent(`/${fontId} ${fontSize} Tf`)
+        this.addContent(`${textX} ${lineY} Td`)
+        const escapedLine = this.escapePDFString(line)
+        this.addContent(`(${escapedLine}) Tj`)
+        this.addContent('ET')
+      }
+
+      // Update Y position after all lines of this item
+      currentY -= lines.length * lineHeight
+
+      // Add gap between list items
+      if (i < items.length - 1) {
+        currentY -= listGap
+      }
+    }
+
+    // Update current position
+    this.currentX = startX
+    this.currentY = currentY
+    this.currentFontSize = fontSize
+  }
+
+  /**
+   * Get bullet text for a given style
+   */
+  private getBulletText(index: number, style: BulletStyle): string {
+    switch (style) {
+      case 'disc':
+        return '\xB7'  // · (middle dot, available in WinAnsiEncoding at 0xB7)
+      case 'circle':
+        return '\xB0'  // ° (degree symbol, available in WinAnsiEncoding at 0xB0)
+      case 'square':
+        return '\xA7'  // § (section symbol, available in WinAnsiEncoding at 0xA7)
+      case 'decimal':
+        return `${index}.`
+      case 'lower-alpha':
+        return `${String.fromCharCode(96 + index)}.`  // a. b. c. ...
+      case 'upper-alpha':
+        return `${String.fromCharCode(64 + index)}.`  // A. B. C. ...
+      case 'lower-roman':
+        return `${this.toRoman(index).toLowerCase()}.`
+      case 'upper-roman':
+        return `${this.toRoman(index)}.`
+      default:
+        // Custom bullet string
+        return style
+    }
+  }
+
+  /**
+   * Convert number to Roman numerals
+   */
+  private toRoman(num: number): string {
+    const romanNumerals: [number, string][] = [
+      [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+      [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+      [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+    ]
+
+    let result = ''
+    for (const [value, numeral] of romanNumerals) {
+      while (num >= value) {
+        result += numeral
+        num -= value
+      }
+    }
+    return result
+  }
+
+  /**
+   * Move down by a specified number of lines (for vertical text flow)
+   * Compatible with PDFKit API
+   *
+   * @param lines Number of lines to move down (default: 1)
+   * @returns this for method chaining
+   *
+   * @example
+   * ```typescript
+   * doc.text('First line', 100, 700, 12)
+   *    .moveDown()  // Move 1 line down
+   *    .text('Second line', 100, doc.getCurrentY(), 12)
+   *    .moveDown(2)  // Move 2 lines down
+   *    .text('Fourth line', 100, doc.getCurrentY(), 12)
+   * ```
+   */
+  moveDown(lines: number = 1): this {
+    const lineHeight = this.currentLineHeight || TextMeasure.calculateLineHeight(this.currentFontSize, 0)
+    this.currentY -= lineHeight * lines
+    return this
+  }
+
+  /**
+   * Move up by a specified number of lines (for vertical text flow)
+   * Compatible with PDFKit API
+   *
+   * @param lines Number of lines to move up (default: 1)
+   * @returns this for method chaining
+   *
+   * @example
+   * ```typescript
+   * doc.text('Line 1', 100, 700, 12)
+   *    .moveDown(3)
+   *    .text('Line 4', 100, doc.getCurrentY(), 12)
+   *    .moveUp(2)  // Move back up 2 lines
+   *    .text('Line 2', 100, doc.getCurrentY(), 12)
+   * ```
+   */
+  moveUp(lines: number = 1): this {
+    const lineHeight = this.currentLineHeight || TextMeasure.calculateLineHeight(this.currentFontSize, 0)
+    this.currentY += lineHeight * lines
+    return this
+  }
+
+  /**
+   * Get current Y position (useful after moveDown/moveUp)
+   *
+   * @returns Current Y coordinate
+   */
+  getCurrentY(): number {
+    return this.currentY
+  }
+
+  /**
+   * Get current X position
+   *
+   * @returns Current X coordinate
+   */
+  getCurrentX(): number {
+    return this.currentX
   }
 
   /**
@@ -3152,6 +3628,36 @@ export class PDFWriter {
           }
 
           linkDict += `\n  /Dest ${dest}`
+        } else if (link.type === 'goto') {
+          // GoTo link (named destination)
+          const destination = this.namedDestinations.get(link.destination)
+          if (destination) {
+            const targetPageObjId = firstPageObjectId + (destination.page * 3) + 2
+            const fit = destination.fit || 'XYZ'
+
+            let dest = `[${targetPageObjId} 0 R /`
+            switch (fit) {
+              case 'Fit':
+                dest += 'Fit]'
+                break
+              case 'FitH':
+                dest += `FitH ${destination.y !== undefined ? destination.y : 'null'}]`
+                break
+              case 'FitV':
+                dest += `FitV ${destination.x !== undefined ? destination.x : 'null'}]`
+                break
+              case 'XYZ':
+                const x = destination.x !== undefined ? destination.x : 'null'
+                const y = destination.y !== undefined ? destination.y : 'null'
+                const zoom = destination.zoom !== undefined ? destination.zoom : 'null'
+                dest += `XYZ ${x} ${y} ${zoom}]`
+                break
+              default:
+                dest += 'Fit]'
+            }
+
+            linkDict += `\n  /Dest ${dest}`
+          }
         }
 
         linkDict += '\n>>'

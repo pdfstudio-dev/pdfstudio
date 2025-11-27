@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDFStudio Browser - Complete Test Suite</title>
+  <title>PDFStudio Browser - Complete Test Suite | Powered by PDF UI Studio</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       max-width: 1400px;
       margin: 0 auto;
       padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
       min-height: 100vh;
     }
 
@@ -22,12 +22,12 @@
     }
 
     h1 {
-      color: #667eea;
+      color: #7C3AED;
       margin-bottom: 10px;
     }
 
     h2 {
-      color: #764ba2;
+      color: #5B21B6;
       margin-top: 40px;
       margin-bottom: 15px;
       padding-bottom: 10px;
@@ -47,7 +47,7 @@
     }
 
     button {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
       color: white;
       border: none;
       padding: 12px 20px;
@@ -62,7 +62,7 @@
 
     button:hover {
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
     }
 
     button:active {
@@ -73,12 +73,12 @@
       background: #f8f9fa;
       padding: 20px;
       border-radius: 8px;
-      border-left: 4px solid #667eea;
+      border-left: 4px solid #7C3AED;
     }
 
     .info h3 {
       margin-top: 0;
-      color: #667eea;
+      color: #7C3AED;
     }
 
     .status {
@@ -108,12 +108,81 @@
       border-radius: 3px;
       font-family: 'Courier New', monospace;
     }
+
+    .sponsor-banner {
+      background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 12px;
+      margin: 25px 0;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(124, 58, 237, 0.3);
+      border: 3px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .sponsor-banner h2 {
+      color: white;
+      margin: 0 0 10px 0;
+      padding: 0;
+      border: none;
+      font-size: 24px;
+    }
+
+    .sponsor-banner p {
+      margin: 8px 0;
+      font-size: 15px;
+      opacity: 0.95;
+    }
+
+    .sponsor-banner .features {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+
+    .sponsor-banner .feature-item {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .sponsor-banner a {
+      display: inline-block;
+      background: white;
+      color: #7C3AED;
+      padding: 12px 30px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      margin-top: 15px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .sponsor-banner a:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🎨 PDFStudio Browser - Complete Test Suite</h1>
     <p class="subtitle">Comprehensive test of ALL PDFStudio features in the browser</p>
+
+    <!-- PDF UI Studio Sponsor Banner -->
+    <div class="sponsor-banner">
+      <h2>🎨 Design PDFs Visually with PDF UI Studio</h2>
+      <p>Stop writing code from scratch—design your PDF layouts with drag & drop and export production-ready JavaScript instantly!</p>
+      <div class="features">
+        <span class="feature-item">✨ AI-Powered Templates</span>
+        <span class="feature-item">🎯 Real-Time Preview</span>
+        <span class="feature-item">💻 Export Clean Code</span>
+        <span class="feature-item">🚀 Free to Start</span>
+      </div>
+      <a href="https://pdfuistudio.io/?ref=pdfstudio-browser-demo" target="_blank">Try Visual Editor (Free) →</a>
+    </div>
 
     <div class="info">
       <h3>✨ Testing All Features</h3>
@@ -261,8 +330,8 @@
       const ctx = canvas.getContext('2d');
 
       const gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, '#667eea');
-      gradient.addColorStop(1, '#764ba2');
+      gradient.addColorStop(0, '#7C3AED');
+      gradient.addColorStop(1, '#5B21B6');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
@@ -1966,39 +2035,46 @@
     async function generateInvoice() {
       try {
         const { PDFDocument } = PDFStudio;
-        const doc = new PDFDocument({ title: 'Invoice #12345' });
+        const doc = new PDFDocument({
+          title: 'Invoice #PDF-2024-1127',
+          info: {
+            Author: 'PDF UI Studio Team',
+            Subject: 'Professional Plan Invoice'
+          }
+        });
 
         // Header
-        doc.setFillColor(0.2, 0.3, 0.8);
+        doc.setFillColor(0.486, 0.227, 0.929); // #7C3AED
         doc.rect(0, 712, 612, 80);
         doc.fill();
 
         doc.setFillColor(1, 1, 1);
         doc.text('INVOICE', 50, 752, 28, 'Helvetica-Bold');
-        doc.text('Invoice #12345', 420, 757, 14);
-        doc.text('Date: ' + new Date().toLocaleDateString(), 420, 737, 12);
+        doc.text('Invoice #PDF-2024-1127', 380, 757, 14);
+        doc.text('Date: ' + new Date().toLocaleDateString(), 380, 737, 12);
 
         // Company info
         doc.setFillColor(0, 0, 0);
-        doc.text('Acme Corporation', 50, 672, 14, 'Helvetica-Bold');
-        doc.text('123 Business St.', 50, 652, 10);
-        doc.text('Business City, BC 12345', 50, 637, 10);
-        doc.text('Phone: (555) 123-4567', 50, 622, 10);
+        doc.text('PDF UI Studio', 50, 672, 14, 'Helvetica-Bold');
+        doc.text('pdfstudio@ideas2code.dev', 50, 652, 10);
+        doc.text('https://pdfuistudio.io', 50, 637, 10);
+        doc.text('Powered by PDFStudio Library', 50, 622, 10);
 
         // Client info
         doc.text('Bill To:', 350, 672, 12, 'Helvetica-Bold');
-        doc.text('Client Name', 350, 652, 10);
-        doc.text('456 Client Ave.', 350, 637, 10);
-        doc.text('Client City, CC 67890', 350, 622, 10);
+        doc.text('Enterprise Customer', 350, 652, 10);
+        doc.text('Tech Solutions Inc.', 350, 637, 10);
+        doc.text('customer@example.com', 350, 622, 10);
 
         // Table
         doc.table({
           headers: ['Description', 'Qty', 'Price', 'Total'],
           rows: [
-            ['Professional Services', '10 hrs', '$100.00', '$1,000.00'],
-            ['Software License', '1', '$500.00', '$500.00'],
-            ['Support & Maintenance', '1 yr', '$300.00', '$300.00'],
-            ['Consulting Fee', '5 hrs', '$150.00', '$750.00']
+            ['Professional Plan (Annual)', '12 months', '$7.00', '$84.00'],
+            ['Visual Editor Access', 'Unlimited', 'Included', '$0.00'],
+            ['AI Templates', 'Unlimited', 'Included', '$0.00'],
+            ['Code Export Feature', 'Unlimited', 'Included', '$0.00'],
+            ['Priority Support', '1 year', 'Included', '$0.00']
           ],
           x: 50,
           y: 472,
@@ -2007,10 +2083,10 @@
 
         // Subtotal and total
         doc.text('Subtotal:', 380, 280, 12);
-        doc.text('$2,550.00', 480, 280, 12);
+        doc.text('$84.00', 480, 280, 12);
 
-        doc.text('Tax (10%):', 380, 260, 12);
-        doc.text('$255.00', 480, 260, 12);
+        doc.text('Discount (Annual):', 380, 260, 12);
+        doc.text('-$0.00', 480, 260, 12);
 
         doc.rect(350, 170, 200, 40);
         doc.setFillColor(0.95, 0.95, 0.95);
@@ -2018,15 +2094,16 @@
 
         doc.setFillColor(0, 0, 0);
         doc.text('Total Amount:', 360, 185, 14, 'Helvetica-Bold');
-        doc.text('$2,805.00', 470, 185, 14, 'Helvetica-Bold');
+        doc.text('$84.00', 470, 185, 14, 'Helvetica-Bold');
 
         // Footer
-        doc.text('Payment Terms: Net 30 days', 50, 140, 10);
-        doc.text('Please make checks payable to Acme Corporation', 50, 125, 10);
-        doc.text('Thank you for your business!', 50, 100, 10, 'Helvetica-Oblique');
+        doc.text('Payment Terms: Due upon receipt', 50, 140, 10);
+        doc.text('Thank you for choosing PDF UI Studio!', 50, 125, 10);
+        doc.text('Questions? Contact: pdfstudio@ideas2code.dev', 50, 110, 10, 'Helvetica-Oblique');
+        doc.text('Visit https://pdfuistudio.io for more info', 50, 95, 10, 'Helvetica-Oblique');
 
-        await doc.save('invoice-12345.pdf');
-        showStatus('✅ Invoice generated successfully!');
+        await doc.save('invoice-pdf-ui-studio.pdf');
+        showStatus('✅ PDF UI Studio invoice generated successfully!');
       } catch (error) {
         showStatus('❌ Error: ' + error.message, true);
         console.error(error);
@@ -2036,27 +2113,33 @@
     async function generateReport() {
       try {
         const { PDFDocument } = PDFStudio;
-        const doc = new PDFDocument({ title: 'Business Report' });
+        const doc = new PDFDocument({
+          title: 'PDF UI Studio - Q4 2024 Growth Report',
+          info: {
+            Author: 'PDF UI Studio Team',
+            Subject: 'Platform growth and user analytics'
+          }
+        });
 
-        doc.text('Q4 2024 Business Report', 50, 750, 24, 'Helvetica-Bold');
-        doc.text('Executive Summary', 50, 720, 16, 'Helvetica-Bold');
+        doc.text('PDF UI Studio - Q4 2024 Growth Report', 50, 750, 22, 'Helvetica-Bold');
+        doc.text('Platform Analytics & User Growth', 50, 720, 16, 'Helvetica-Bold');
 
-        doc.text('Generated: ' + new Date().toLocaleDateString(), 420, 750, 10);
+        doc.text('Generated: ' + new Date().toLocaleDateString(), 400, 750, 10);
 
         // Executive Summary
-        doc.text('This quarter showed strong growth across all metrics. Revenue increased by 23%,', 50, 690, 11);
-        doc.text('customer acquisition improved by 34%, and customer satisfaction remained high at 4.8/5.', 50, 675, 11);
+        doc.text('Q4 2024 was our best quarter yet! User sign-ups increased by 68%, with the Visual', 50, 690, 11);
+        doc.text('Editor and AI Templates driving adoption. Over 156,000 PDFs were generated this quarter.', 50, 675, 11);
 
         // Performance Table
         doc.text('Key Performance Indicators', 50, 640, 14, 'Helvetica-Bold');
         doc.table({
           headers: ['Metric', 'Q3 2024', 'Q4 2024', 'Change', 'Target'],
           rows: [
-            ['Revenue', '$450K', '$554K', '+23%', '$500K'],
-            ['New Customers', '1,250', '1,675', '+34%', '1,500'],
-            ['Churn Rate', '2.1%', '1.5%', '-29%', '<2%'],
-            ['Customer Satisfaction', '4.5', '4.8', '+7%', '>4.5'],
-            ['Support Tickets', '450', '380', '-16%', '<400']
+            ['New Users', '2,430', '4,088', '+68%', '3,500'],
+            ['PDFs Generated', '98,500', '156,000', '+58%', '120,000'],
+            ['AI Templates Used', '8,240', '15,670', '+90%', '12,000'],
+            ['Active Paid Users', '2,845', '4,558', '+60%', '4,000'],
+            ['User Satisfaction', '4.6/5', '4.9/5', '+7%', '>4.5']
           ],
           x: 50,
           y: 450,
@@ -2065,30 +2148,31 @@
 
         // Chart
         doc.addPage();
-        doc.text('Revenue Trend', 50, 750, 16, 'Helvetica-Bold');
+        doc.text('User Growth Trend 2024', 50, 750, 18, 'Helvetica-Bold');
 
         doc.barChart({
           data: [
-            { label: 'Q1', value: 380 },
-            { label: 'Q2', value: 420 },
-            { label: 'Q3', value: 450 },
-            { label: 'Q4', value: 554 }
+            { label: 'Q1', value: 1832 },
+            { label: 'Q2', value: 2156 },
+            { label: 'Q3', value: 2430 },
+            { label: 'Q4', value: 4088 }
           ],
           x: 80,
           y: 450,
           width: 450,
           height: 250,
-          title: 'Quarterly Revenue ($K)',
-          colors: ['#667eea', '#764ba2', '#f093fb', '#43e97b']
+          title: 'Quarterly New User Sign-Ups',
+          colors: ['#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95']
         });
 
-        doc.text('Recommendations', 80, 150, 14, 'Helvetica-Bold');
-        doc.text('- Continue investment in customer acquisition', 80, 130, 11);
-        doc.text('- Expand support team to handle growth', 80, 115, 11);
-        doc.text('- Launch new product features in Q1 2025', 80, 100, 11);
+        doc.text('Top Features by Usage', 80, 150, 14, 'Helvetica-Bold');
+        doc.text('1. Visual Editor - 92% of users', 80, 130, 11);
+        doc.text('2. AI Templates - 78% of users', 80, 115, 11);
+        doc.text('3. Code Export - 85% of users', 80, 100, 11);
+        doc.text('4. Real-time Preview - 96% of users', 80, 85, 11);
 
-        await doc.save('business-report-q4-2024.pdf');
-        showStatus('✅ Business report generated successfully!');
+        await doc.save('pdf-ui-studio-growth-report-q4-2024.pdf');
+        showStatus('✅ PDF UI Studio growth report generated successfully!');
       } catch (error) {
         showStatus('❌ Error: ' + error.message, true);
         console.error(error);
@@ -2098,35 +2182,42 @@
     async function generateCertificate() {
       try {
         const { PDFDocument } = PDFStudio;
-        const doc = new PDFDocument({ title: 'Certificate of Achievement' });
+        const doc = new PDFDocument({
+          title: 'PDF UI Studio Mastery Certificate',
+          info: {
+            Author: 'PDF UI Studio Academy',
+            Subject: 'Certificate of Completion'
+          }
+        });
 
         // Border
-        doc.setStrokeColor(0.4, 0.2, 0.8);
+        doc.setStrokeColor(0.486, 0.227, 0.929); // #7C3AED
         doc.setLineWidth(10);
         doc.rect(40, 40, 532, 722);
         doc.stroke();
 
-        doc.setStrokeColor(0.6, 0.4, 0.9);
+        doc.setStrokeColor(0.427, 0.161, 0.714); // #6D28D9
         doc.setLineWidth(2);
         doc.rect(60, 60, 492, 682);
         doc.stroke();
 
         // Title
-        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.setFillColor(0.486, 0.227, 0.929); // #7C3AED
         doc.text('CERTIFICATE', 306, 680, 32, 'Helvetica-Bold');
-        doc.text('OF ACHIEVEMENT', 306, 640, 24, 'Helvetica-Bold');
+        doc.text('OF MASTERY', 306, 640, 24, 'Helvetica-Bold');
 
         // Body
         doc.setFillColor(0, 0, 0);
         doc.text('This is to certify that', 306, 560, 14);
 
-        doc.setFillColor(0.4, 0.2, 0.8);
-        doc.text('John Doe', 306, 510, 28, 'Helvetica-Bold');
+        doc.setFillColor(0.486, 0.227, 0.929);
+        doc.text('Sarah Thompson', 306, 510, 28, 'Helvetica-Bold');
 
         doc.setFillColor(0, 0, 0);
         doc.text('has successfully completed', 306, 470, 14);
 
-        doc.text('Advanced PDF Generation with PDFStudio', 306, 440, 16, 'Helvetica-Bold');
+        doc.text('PDF UI Studio: Visual PDF Design Mastery', 306, 440, 16, 'Helvetica-Bold');
+        doc.text('Course Topics: Visual Editor, AI Templates, Code Export', 306, 415, 11);
 
         doc.text('Date: ' + new Date().toLocaleDateString(), 306, 380, 12);
 
@@ -2144,13 +2235,14 @@
         doc.text('Date', 400, 260, 10);
 
         // Footer
-        doc.setFillColor(0.4, 0.2, 0.8);
-        doc.text('PDFStudio Academy', 306, 180, 12, 'Helvetica-Bold');
+        doc.setFillColor(0.486, 0.227, 0.929);
+        doc.text('PDF UI Studio Academy', 306, 180, 12, 'Helvetica-Bold');
         doc.setFillColor(0.5, 0.5, 0.5);
-        doc.text('Excellence in PDF Generation', 306, 165, 10);
+        doc.text('Empowering Developers with Visual PDF Tools', 306, 165, 10);
+        doc.text('https://pdfuistudio.io', 306, 150, 9);
 
-        await doc.save('certificate-john-doe.pdf');
-        showStatus('✅ Certificate generated successfully!');
+        await doc.save('certificate-pdf-ui-studio-mastery.pdf');
+        showStatus('✅ PDF UI Studio certificate generated successfully!');
       } catch (error) {
         showStatus('❌ Error: ' + error.message, true);
         console.error(error);
@@ -2160,36 +2252,42 @@
     async function generateFlyer() {
       try {
         const { PDFDocument } = PDFStudio;
-        const doc = new PDFDocument({ title: 'Product Flyer' });
+        const doc = new PDFDocument({
+          title: 'PDF UI Studio - Visual PDF Editor',
+          info: {
+            Author: 'PDF UI Studio Team',
+            Subject: 'Product promotional flyer'
+          }
+        });
 
         // Header
-        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.setFillColor(0.486, 0.227, 0.929); // #7C3AED
         doc.rect(0, 700, 612, 92);
         doc.fill();
 
         doc.setFillColor(1, 1, 1);
-        doc.text('INTRODUCING', 306, 760, 16, 'Helvetica-Bold');
-        doc.text('PDFStudio Pro', 306, 730, 32, 'Helvetica-Bold');
+        doc.text('DESIGN PDFs VISUALLY', 306, 760, 16, 'Helvetica-Bold');
+        doc.text('PDF UI Studio', 306, 730, 32, 'Helvetica-Bold');
 
         // Tagline
         doc.setFillColor(0, 0, 0);
-        doc.text('Professional PDF Generation for Modern Web Apps', 306, 670, 14, 'Helvetica-Oblique');
+        doc.text('Stop Coding—Start Designing. Export Production-Ready Code Instantly.', 306, 670, 13, 'Helvetica-Oblique');
 
         // Features
-        doc.text('Key Features', 50, 620, 18, 'Helvetica-Bold');
+        doc.text('Why Developers Love It', 50, 620, 18, 'Helvetica-Bold');
 
         const features = [
-          'Browser & Node.js Support',
-          'Charts, Tables & QR Codes',
-          'Custom Fonts & Images',
-          'Watermarks & Security',
-          'Headers & Footers',
-          'Multi-page Documents'
+          '🎨 Visual Drag & Drop Editor',
+          '✨ AI-Powered PDF Templates',
+          '💻 Export Clean JavaScript Code',
+          '🎯 Real-Time Preview',
+          '🚀 Works with PDFStudio Library',
+          '⚡ No Server Required'
         ];
 
         let y = 580;
         features.forEach(feature => {
-          doc.setFillColor(0.4, 0.2, 0.8);
+          doc.setFillColor(0.486, 0.227, 0.929);
           doc.circle({ x: 70, y: y + 4, radius: 3 });
           doc.fill();
           doc.setFillColor(0, 0, 0);
@@ -2198,41 +2296,45 @@
         });
 
         // Pricing
-        doc.setFillColor(0.95, 0.95, 0.95);
-        doc.rect(320, 480, 240, 140);
+        doc.setFillColor(0.95, 0.92, 0.98);
+        doc.rect(320, 460, 240, 160);
         doc.fill();
 
-        doc.setFillColor(0.4, 0.2, 0.8);
-        doc.text('Special Offer', 440, 600, 16, 'Helvetica-Bold');
-        doc.text('$99', 440, 560, 36, 'Helvetica-Bold');
-        doc.setFillColor(0, 0, 0);
-        doc.text('per month', 440, 530, 12);
+        doc.setFillColor(0.486, 0.227, 0.929);
+        doc.text('Pricing Plans', 440, 600, 16, 'Helvetica-Bold');
 
-        doc.text('- Unlimited PDFs', 350, 500, 11);
-        doc.text('- Priority Support', 350, 485, 11);
-        doc.text('- Commercial License', 350, 470, 11);
+        doc.setFillColor(0, 0, 0);
+        doc.text('Free - $0/month', 350, 570, 12, 'Helvetica-Bold');
+        doc.text('Professional - $7/month', 350, 545, 12, 'Helvetica-Bold');
+        doc.text('Lifetime - $100 once', 350, 520, 12, 'Helvetica-Bold');
+
+        doc.setFillColor(0.486, 0.227, 0.929);
+        doc.text('All plans include:', 350, 490, 11);
+        doc.setFillColor(0, 0, 0);
+        doc.text('✓ Visual Editor', 360, 475, 10);
+        doc.text('✓ Code Export', 360, 462, 10);
 
         // QR Code
         await doc.qrCode({
-          data: 'https://pdfstudio.dev/buy',
+          data: 'https://pdfuistudio.io/?ref=flyer',
           x: 440,
           y: 280,
           size: 100
         });
 
-        doc.text('Scan to purchase', 440, 160, 10);
+        doc.text('Scan to try FREE', 440, 160, 10);
 
         // Footer
-        doc.setFillColor(0.4, 0.2, 0.8);
+        doc.setFillColor(0.486, 0.227, 0.929);
         doc.rect(0, 0, 612, 60);
         doc.fill();
 
         doc.setFillColor(1, 1, 1);
-        doc.text('www.pdfstudio.dev', 306, 35, 14, 'Helvetica-Bold');
-        doc.text('contact@pdfstudio.dev  |  (555) 123-4567', 306, 15, 10);
+        doc.text('pdfuistudio.io', 306, 35, 14, 'Helvetica-Bold');
+        doc.text('pdfstudio@ideas2code.dev  |  Start Creating Today!', 306, 15, 10);
 
-        await doc.save('product-flyer.pdf');
-        showStatus('✅ Product flyer generated successfully!');
+        await doc.save('pdf-ui-studio-flyer.pdf');
+        showStatus('✅ PDF UI Studio flyer generated successfully!');
       } catch (error) {
         showStatus('❌ Error: ' + error.message, true);
         console.error(error);
@@ -2242,32 +2344,38 @@
     async function generateResume() {
       try {
         const { PDFDocument } = PDFStudio;
-        const doc = new PDFDocument({ title: 'Resume - John Doe' });
+        const doc = new PDFDocument({
+          title: 'Resume - John Warnock - PDF UI Studio',
+          info: {
+            Author: 'John Warnock',
+            Subject: 'Senior Product Engineer Resume'
+          }
+        });
 
         // Header
-        doc.setFillColor(0.2, 0.3, 0.8);
+        doc.setFillColor(0.486, 0.227, 0.929); // #7C3AED
         doc.rect(0, 720, 612, 72);
         doc.fill();
 
         doc.setFillColor(1, 1, 1);
-        doc.text('JOHN DOE', 50, 762, 28, 'Helvetica-Bold');
-        doc.text('Senior Software Engineer', 50, 735, 14);
+        doc.text('JOHN WARNOCK', 50, 762, 28, 'Helvetica-Bold');
+        doc.text('Senior Product Engineer @ PDF UI Studio', 50, 735, 14);
 
-        doc.text('john.doe@email.com', 450, 762, 11);
-        doc.text('(555) 123-4567', 450, 745, 11);
-        doc.text('linkedin.com/in/johndoe', 450, 728, 11);
+        doc.text('pdfstudio@ideas2code.dev', 400, 762, 11);
+        doc.text('github.com/pdfstudio-dev/pdfstudio', 400, 745, 11);
+        doc.text('pdfuistudio.io', 420, 728, 11);
 
         // Summary
         doc.setFillColor(0, 0, 0);
         doc.text('PROFESSIONAL SUMMARY', 50, 690, 14, 'Helvetica-Bold');
-        doc.setStrokeColor(0.2, 0.3, 0.8);
+        doc.setStrokeColor(0.486, 0.227, 0.929);
         doc.setLineWidth(2);
         doc.moveTo(50, 685);
         doc.lineTo(560, 685);
         doc.stroke();
 
-        doc.text('Experienced software engineer with 8+ years in full-stack development. Specialized in', 50, 660, 11);
-        doc.text('building scalable web applications and leading development teams.', 50, 645, 11);
+        doc.text('Lead engineer at PDF UI Studio, specializing in visual PDF design tools and AI-powered', 50, 660, 11);
+        doc.text('templates. Expert in TypeScript, React, and PDF generation libraries (PDFStudio/PDFKit).', 50, 645, 11);
 
         // Experience
         doc.text('WORK EXPERIENCE', 50, 610, 14, 'Helvetica-Bold');
@@ -2275,19 +2383,19 @@
         doc.lineTo(560, 605);
         doc.stroke();
 
-        doc.text('Senior Software Engineer', 50, 580, 12, 'Helvetica-Bold');
-        doc.text('Tech Corp Inc.', 350, 580, 11);
-        doc.text('2020 - Present', 480, 580, 11, 'Helvetica-Oblique');
-        doc.text('- Led team of 5 developers on major product initiative', 50, 560, 10);
-        doc.text('- Improved application performance by 40%', 50, 545, 10);
-        doc.text('- Implemented CI/CD pipeline reducing deployment time by 60%', 50, 530, 10);
+        doc.text('Senior Product Engineer', 50, 580, 12, 'Helvetica-Bold');
+        doc.text('PDF UI Studio', 350, 580, 11);
+        doc.text('2022 - Present', 480, 580, 11, 'Helvetica-Oblique');
+        doc.text('- Built visual drag & drop PDF editor used by 12,450+ developers', 50, 560, 10);
+        doc.text('- Developed AI template system generating 15,670+ templates quarterly', 50, 545, 10);
+        doc.text('- Created code export feature with 85% adoption rate', 50, 530, 10);
 
-        doc.text('Software Engineer', 50, 500, 12, 'Helvetica-Bold');
-        doc.text('StartUp LLC', 350, 500, 11);
-        doc.text('2018 - 2020', 480, 500, 11, 'Helvetica-Oblique');
-        doc.text('- Built core features for SaaS platform', 50, 480, 10);
-        doc.text('- Reduced bug rate by 35% through testing improvements', 50, 465, 10);
-        doc.text('- Mentored junior developers', 50, 450, 10);
+        doc.text('Full Stack Developer', 50, 500, 12, 'Helvetica-Bold');
+        doc.text('Document Solutions Inc.', 350, 500, 11);
+        doc.text('2019 - 2022', 480, 500, 11, 'Helvetica-Oblique');
+        doc.text('- Built PDF generation APIs processing 1M+ documents monthly', 50, 480, 10);
+        doc.text('- Reduced rendering time by 60% through optimization', 50, 465, 10);
+        doc.text('- Led migration to TypeScript & modern architecture', 50, 450, 10);
 
         // Skills
         doc.text('SKILLS', 50, 415, 14, 'Helvetica-Bold');
@@ -2296,13 +2404,13 @@
         doc.stroke();
 
         doc.text('Languages:', 50, 385, 11, 'Helvetica-Bold');
-        doc.text('JavaScript, TypeScript, Python, Java', 130, 385, 10);
+        doc.text('TypeScript, JavaScript, Node.js, React', 130, 385, 10);
 
-        doc.text('Frameworks:', 50, 370, 11, 'Helvetica-Bold');
-        doc.text('React, Node.js, Express, Django', 130, 370, 10);
+        doc.text('PDF Tech:', 50, 370, 11, 'Helvetica-Bold');
+        doc.text('PDFStudio, PDFKit, Canvas API, PDF.js', 130, 370, 10);
 
-        doc.text('Tools:', 50, 355, 11, 'Helvetica-Bold');
-        doc.text('Git, Docker, AWS, CI/CD', 130, 355, 10);
+        doc.text('Specialties:', 50, 355, 11, 'Helvetica-Bold');
+        doc.text('Visual Editors, AI/ML Integration, Developer Tools', 130, 355, 10);
 
         // Education
         doc.text('EDUCATION', 50, 320, 14, 'Helvetica-Bold');
@@ -2311,15 +2419,15 @@
         doc.stroke();
 
         doc.text('Bachelor of Science in Computer Science', 50, 290, 12, 'Helvetica-Bold');
-        doc.text('State University', 350, 290, 11);
-        doc.text('2014 - 2018', 480, 290, 11, 'Helvetica-Oblique');
+        doc.text('Tech University', 350, 290, 11);
+        doc.text('2015 - 2019', 480, 290, 11, 'Helvetica-Oblique');
 
         // Footer
         doc.setFillColor(0.7, 0.7, 0.7);
-        doc.text('References available upon request', 306, 100, 9, 'Helvetica-Oblique');
+        doc.text('Created with PDF UI Studio - pdfuistudio.io', 306, 100, 9, 'Helvetica-Oblique');
 
-        await doc.save('resume-john-doe.pdf');
-        showStatus('✅ Resume generated successfully!');
+        await doc.save('resume-john-warnock-pdf-ui-studio.pdf');
+        showStatus('✅ John Warnock resume generated successfully!');
       } catch (error) {
         showStatus('❌ Error: ' + error.message, true);
         console.error(error);
@@ -2327,7 +2435,8 @@
     }
 
     // Show welcome message
-    console.log('%c🎨 PDFStudio Complete Test Suite Loaded!', 'color: #667eea; font-size: 18px; font-weight: bold;');
+    console.log('%c🎨 PDFStudio Complete Test Suite Loaded!', 'color: #7C3AED; font-size: 18px; font-weight: bold;');
+    console.log('%cPowered by PDF UI Studio - pdfuistudio.io', 'color: #5B21B6; font-weight: bold;');
     console.log('Click any button above to test that feature!');
   </script>
 </body>

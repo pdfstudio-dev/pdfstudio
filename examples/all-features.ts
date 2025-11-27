@@ -7,21 +7,21 @@ console.log('🎨 Generating PDFs with all features...\n')
 // ====================
 console.log('1️⃣  Different colors per bar...')
 const doc1 = new PDFDocument()
-doc1.text('1. Different Colors per Bar', 200, 750, 18)
+doc1.text('PDF UI Studio - User Growth 2024', 160, 750, 18)
 doc1.barChart({
   data: [
-    { label: 'Jan', value: 45 },
-    { label: 'Feb', value: 62 },
-    { label: 'Mar', value: 38 },
-    { label: 'Apr', value: 71 },
-    { label: 'May', value: 55 }
+    { label: 'Jan', value: 245 },
+    { label: 'Feb', value: 362 },
+    { label: 'Mar', value: 438 },
+    { label: 'Apr', value: 571 },
+    { label: 'May', value: 655 }
   ],
   x: 50,
   y: 350,
   width: 500,
   height: 300,
-  barColors: ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'],
-  title: 'Monthly Sales',
+  barColors: ['#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95', '#3B0764'],
+  title: 'New User Sign-Ups',
   showAxes: true,
   showGrid: true,
   showLabels: true,
@@ -38,25 +38,25 @@ doc1.save('examples-output/01-different-colors.pdf')
 // ====================
 console.log('2️⃣  Gradients on bars...')
 const doc2 = new PDFDocument()
-doc2.text('2. Gradients', 250, 750, 18)
+doc2.text('PDF UI Studio - Templates Created', 160, 750, 18)
 doc2.barChart({
   data: [
-    { label: 'Q1', value: 150 },
-    { label: 'Q2', value: 230 },
-    { label: 'Q3', value: 180 },
-    { label: 'Q4', value: 290 }
+    { label: 'Q1', value: 1250 },
+    { label: 'Q2', value: 2340 },
+    { label: 'Q3', value: 3180 },
+    { label: 'Q4', value: 4290 }
   ],
   x: 50,
   y: 350,
   width: 500,
   height: 300,
-  barColor: '#3498db',
+  barColor: '#7C3AED',
   gradient: {
     enabled: true,
     type: 'linear',
-    colors: ['#3498db', '#2980b9']
+    colors: ['#7C3AED', '#5B21B6']
   },
-  title: 'Quarterly Revenue',
+  title: 'AI Templates Generated',
   showAxes: true,
   showGrid: true,
   showLabels: true,
@@ -69,25 +69,25 @@ doc2.save('examples-output/02-gradients.pdf')
 // ====================
 console.log('3️⃣  Shadows on bars...')
 const doc3 = new PDFDocument()
-doc3.text('3. Shadows', 260, 750, 18)
+doc3.text('PDF UI Studio - Feature Usage', 170, 750, 18)
 doc3.barChart({
   data: [
-    { label: 'Prod A', value: 120 },
-    { label: 'Prod B', value: 95 },
-    { label: 'Prod C', value: 140 },
-    { label: 'Prod D', value: 110 }
+    { label: 'Visual Editor', value: 4520 },
+    { label: 'AI Templates', value: 3895 },
+    { label: 'Code Export', value: 5140 },
+    { label: 'Preview', value: 4710 }
   ],
   x: 50,
   y: 350,
   width: 500,
   height: 300,
-  barColor: '#e74c3c',
+  barColor: '#7C3AED',
   shadow: {
     enabled: true,
     offsetX: 3,
     offsetY: 3
   },
-  title: 'Products with Shadow',
+  title: 'Most Used Features',
   showAxes: true,
   showGrid: true,
   showLabels: true,

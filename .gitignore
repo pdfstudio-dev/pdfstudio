@@ -82,6 +82,14 @@ out
 .nuxt
 dist
 
+# PDFStudio - Generated PDFs from examples
+examples-output/
+*.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

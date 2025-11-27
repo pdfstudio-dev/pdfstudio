@@ -1,5 +1,5 @@
 import { PDFWriter } from './PDFWriter'
-import { PDFDocumentOptions, PAGE_SIZES, BarChartOptions, GroupedBarChartOptions, StackedBarChartOptions, LineChartOptions, MultiLineChartOptions, PieChartOptions, DonutChartOptions, PageNumberOptions, PageSize, Margins, DocumentInfo, PageLayout, PDFSecurityOptions, ImageOptions, TextOptions, TableOptions, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, HeaderFooterOptions, BookmarkOptions, FormOptions, FormField, SignatureFieldOptions, Annotation, TextAnnotation, HighlightAnnotation, UnderlineAnnotation, StrikeOutAnnotation, SquareAnnotation, CircleAnnotation as CircleAnnotationType, FreeTextAnnotation, StampAnnotation, InkAnnotation, Watermark, TextWatermark, ImageWatermark, Link, ExternalLink, InternalLink, PageRotation, ExtendedMetadata, FileAttachment, FileAttachmentAnnotation, CustomFont, PDFBaseFont, Gradient, TilingPatternOptions, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, Color, QRCodeOptions } from '../types'
+import { PDFDocumentOptions, PAGE_SIZES, BarChartOptions, GroupedBarChartOptions, StackedBarChartOptions, LineChartOptions, MultiLineChartOptions, PieChartOptions, DonutChartOptions, PageNumberOptions, PageSize, Margins, DocumentInfo, PageLayout, PDFSecurityOptions, ImageOptions, TextOptions, TableOptions, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, HeaderFooterOptions, BookmarkOptions, FormOptions, FormField, SignatureFieldOptions, Annotation, TextAnnotation, HighlightAnnotation, UnderlineAnnotation, StrikeOutAnnotation, SquareAnnotation, CircleAnnotation as CircleAnnotationType, FreeTextAnnotation, StampAnnotation, InkAnnotation, Watermark, TextWatermark, ImageWatermark, Link, ExternalLink, InternalLink, PageRotation, ExtendedMetadata, FileAttachment, FileAttachmentAnnotation, CustomFont, PDFBaseFont, Gradient, TilingPatternOptions, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, Color, QRCodeOptions, ListOptions } from '../types'
 import { BarChart } from '../charts/BarChart'
 import { GroupedBarChart } from '../charts/GroupedBarChart'
 import { StackedBarChart } from '../charts/StackedBarChart'
@@ -740,17 +740,23 @@ export class PDFDocument {
    */
   text(text: string, x: number, y: number, fontSize: number, font: PDFBaseFont): this
   /**
+   * Add text with options parameter (PDFKit compatibility)
+   */
+  text(text: string, x: number, y: number, fontSize: number, options: TextOptions): this
+  /**
    * Add text with advanced options (word wrap, alignment, etc.)
    */
   text(text: string, options: TextOptions & { x: number, y: number }): this
-  text(text: string, xOrOptions: number | (TextOptions & { x: number, y: number }), y?: number, fontSize?: number, font?: PDFBaseFont): this {
+  text(text: string, xOrOptions: number | (TextOptions & { x: number, y: number }), y?: number, fontSize?: number, fontOrOptions?: PDFBaseFont | TextOptions): this {
     if (typeof xOrOptions === 'number') {
-      // Simple API: text(text, x, y, fontSize, font?)
-      if (font) {
-        // If font is provided, pass it to writer
-        this.writer.text(text, xOrOptions, y!, fontSize, font)
+      // Simple API: text(text, x, y, fontSize?, font? | options?)
+      const x = xOrOptions
+      if (typeof fontOrOptions === 'object') {
+        // Options object passed - use default font with options
+        this.writer.text(text, x, y!, fontSize || 12, 'Helvetica', fontOrOptions)
       } else {
-        this.writer.text(text, xOrOptions, y!, fontSize)
+        // Font string or nothing passed
+        this.writer.text(text, x, y!, fontSize, fontOrOptions)
       }
     } else {
       // Advanced API: text(text, { x, y, fontSize, font, ...options })
@@ -783,11 +789,124 @@ export class PDFDocument {
   }
 
   /**
+   * Move down by a specified number of lines (for vertical text flow)
+   * Compatible with PDFKit API
+   *
+   * @param lines Number of lines to move down (default: 1)
+   * @returns this for method chaining
+   *
+   * @example
+   * ```typescript
+   * doc.text('First line', 100, 700, 12)
+   *    .moveDown()  // Move 1 line down
+   *    .text('Second line', 100, doc.getCurrentY(), 12)
+   *    .moveDown(2)  // Move 2 lines down
+   *    .text('Fourth line', 100, doc.getCurrentY(), 12)
+   * ```
+   */
+  moveDown(lines: number = 1): this {
+    this.writer.moveDown(lines)
+    return this
+  }
+
+  /**
+   * Move up by a specified number of lines (for vertical text flow)
+   * Compatible with PDFKit API
+   *
+   * @param lines Number of lines to move up (default: 1)
+   * @returns this for method chaining
+   *
+   * @example
+   * ```typescript
+   * doc.text('Line 1', 100, 700, 12)
+   *    .moveDown(3)
+   *    .text('Line 4', 100, doc.getCurrentY(), 12)
+   *    .moveUp(2)  // Move back up 2 lines
+   *    .text('Line 2', 100, doc.getCurrentY(), 12)
+   * ```
+   */
+  moveUp(lines: number = 1): this {
+    this.writer.moveUp(lines)
+    return this
+  }
+
+  /**
+   * Get current Y position (useful after moveDown/moveUp)
+   *
+   * @returns Current Y coordinate
+   */
+  getCurrentY(): number {
+    return this.writer.getCurrentY()
+  }
+
+  /**
+   * Get current X position
+   *
+   * @returns Current X coordinate
+   */
+  getCurrentX(): number {
+    return this.writer.getCurrentX()
+  }
+
+  /**
+   * Render a bulleted/numbered list (PDFKit compatible)
+   *
+   * @param items Array of strings to render as list items
+   * @param x X position (optional, uses current X if not specified)
+   * @param y Y position (optional, uses current Y if not specified)
+   * @param options List options
+   *
+   * @example
+   * ```typescript
+   * doc.list(['First item', 'Second item', 'Third item'], 100, 700, {
+   *   bulletStyle: 'disc',
+   *   fontSize: 12
+   * })
+   *
+   * // Numbered list
+   * doc.list(['Step 1', 'Step 2', 'Step 3'], 100, 600, {
+   *   bulletStyle: 'decimal'
+   * })
+   * ```
+   */
+  list(items: string[], x?: number, y?: number, options?: ListOptions): this {
+    this.writer.list(items, x, y, options)
+    return this
+  }
+
+  /**
    * Draw a rectangle
    */
   rect(x: number, y: number, width: number, height: number): this {
     validateRectangle(x, y, width, height)
     this.writer.rect(x, y, width, height)
+    return this
+  }
+
+  /**
+   * Draw a rectangle with rounded corners
+   * Compatible with PDFKit API
+   *
+   * @param x X coordinate of the bottom-left corner
+   * @param y Y coordinate of the bottom-left corner
+   * @param width Width of the rectangle
+   * @param height Height of the rectangle
+   * @param cornerRadius Radius of the rounded corners (can be a single value or [rx, ry])
+   *
+   * @example
+   * ```typescript
+   * // Rectangle with 10pt corner radius
+   * doc.roundedRect(100, 100, 200, 150, 10)
+   *    .stroke()
+   *
+   * // Different horizontal and vertical radii
+   * doc.roundedRect(100, 300, 200, 150, [15, 8])
+   *    .fillAndStroke('#3498db', '#2c3e50')
+   * ```
+   */
+  roundedRect(x: number, y: number, width: number, height: number, cornerRadius: number | [number, number]): this {
+    validateRectangle(x, y, width, height)
+    this.writer.roundedRect(x, y, width, height, cornerRadius)
     return this
   }
 

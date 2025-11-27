@@ -743,6 +743,8 @@ export interface TextOptions {
 
   // Link
   link?: string             // URL for clickeable text
+  goTo?: string             // Navigate to named destination (PDFKit compatible)
+  destination?: string      // Create a named destination at this text position (PDFKit compatible)
 
   // Flow control
   continued?: boolean       // Continue on same line (for inline style changes)
@@ -751,8 +753,41 @@ export interface TextOptions {
   indent?: number           // First line indent
   paragraphGap?: number     // Space after paragraph
 
+  // Transformation
+  rotation?: number         // Rotate text in degrees (clockwise, PDFKit compatible)
+
+  // Multi-column layout (PDFKit compatible)
+  columns?: number          // Number of columns to flow text into
+  columnGap?: number        // Gap between columns in points (default: 18, which is 1/4 inch)
+
   // Advanced
   ellipsis?: boolean | string  // Add ellipsis if text doesn't fit
+}
+
+// ==================
+// LISTS
+// ==================
+
+/**
+ * List bullet style (PDFKit compatible)
+ */
+export type BulletStyle = 'disc' | 'circle' | 'square' | 'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman' | string  // string for custom bullets
+
+/**
+ * List options (PDFKit compatible)
+ */
+export interface ListOptions {
+  x?: number              // X position (default: current X)
+  y?: number              // Y position (default: current Y)
+  width?: number          // Maximum width for list items
+  font?: PDFBaseFont      // Font for list items
+  fontSize?: number       // Font size (default: 12)
+  bulletStyle?: BulletStyle  // Bullet style (default: 'disc')
+  bulletIndent?: number   // Indent for bullets (default: 0)
+  textIndent?: number     // Indent for text after bullet (default: 20)
+  lineGap?: number        // Space between lines (default: 0)
+  bulletGap?: number      // Space between bullet and text (default: 10)
+  listGap?: number        // Space between list items (default: 5)
 }
 
 // ==================
@@ -1504,9 +1539,31 @@ export interface InternalLink extends BaseLink {
 }
 
 /**
+ * GoTo link (named destination) options
+ * Navigate to a named destination in the document (PDFKit compatible)
+ */
+export interface GoToLink extends BaseLink {
+  type: 'goto'
+  destination: string   // Name of the destination to navigate to
+}
+
+/**
  * Union type for all link types
  */
-export type Link = ExternalLink | InternalLink
+export type Link = ExternalLink | InternalLink | GoToLink
+
+/**
+ * Named destination definition
+ * Creates an anchor point that can be navigated to via goTo links
+ */
+export interface NamedDestination {
+  name: string          // Unique name for this destination
+  page: number          // Page number (0-indexed)
+  x?: number            // X coordinate (default: 0)
+  y?: number            // Y coordinate (default: top of page)
+  fit?: 'Fit' | 'FitH' | 'FitV' | 'XYZ'  // How to display (default: 'XYZ')
+  zoom?: number         // Zoom level (default: null = inherit)
+}
 
 // =======================
 // PAGE OPERATIONS

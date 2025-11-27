@@ -43,7 +43,7 @@ const doc1 = new PDFDocument({
         width: 300,
         height: 25,
         fontSize: 12,
-        defaultValue: 'user@example.com',
+        defaultValue: 'pdfstudio@ideas2code.dev',
         tooltip: 'Enter your email address'
       },
       {
@@ -62,7 +62,7 @@ const doc1 = new PDFDocument({
   }
 })
 
-doc1.text('Simple Contact Form', 50, 750, 24)
+doc1.text('PDF UI Studio - Contact Form', 50, 750, 24)
 doc1.text('First Name:', 50, 690, 12)
 doc1.text('Last Name:', 50, 650, 12)
 doc1.text('Email:', 50, 610, 12)
@@ -261,7 +261,7 @@ const doc5 = new PDFDocument({
   size: 'Letter',
   margins: 50,
   form: {
-    submitUrl: 'https://example.com/submit',
+    submitUrl: 'https://pdfuistudio.io/api/submit',
     fields: [
       {
         type: 'text',
@@ -293,7 +293,7 @@ const doc5 = new PDFDocument({
         width: 120,
         height: 35,
         action: 'submit',
-        submitUrl: 'https://example.com/submit',
+        submitUrl: 'https://pdfuistudio.io/api/submit',
         backgroundColor: [0.2, 0.6, 0.2] as Color,
         labelColor: [1, 1, 1] as Color,
         borderColor: [0, 0.4, 0] as Color,
@@ -336,7 +336,7 @@ const doc6 = new PDFDocument({
   size: 'Letter',
   margins: 50,
   form: {
-    submitUrl: 'https://example.com/register',
+    submitUrl: 'https://pdfuistudio.io/signup',
     fields: [
       // Personal Information
       {
@@ -476,7 +476,7 @@ const doc6 = new PDFDocument({
         width: 150,
         height: 40,
         action: 'submit',
-        submitUrl: 'https://example.com/register',
+        submitUrl: 'https://pdfuistudio.io/signup',
         backgroundColor: [0.1, 0.4, 0.8] as Color,
         labelColor: [1, 1, 1] as Color,
         borderWidth: 0,

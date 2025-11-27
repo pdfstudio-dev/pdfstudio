@@ -341,7 +341,7 @@ function example7() {
       rights: 'Copyright © 2024 Content Creator LLC. All rights reserved. This document may not be reproduced without written permission.',
       custom: {
         licenseType: 'Proprietary',
-        licenseURL: 'https://example.com/license',
+        licenseURL: 'https://pdfuistudio.io/license',
         copyrightYear: 2024,
         copyrightHolder: 'Content Creator LLC',
         usageRights: 'View Only',

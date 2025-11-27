@@ -48,25 +48,25 @@ console.log('   ✅ Saved: config-1-default.pdf\n')
 console.log('2️⃣  Configuring custom company defaults...')
 
 configure({
-  defaultCreator: 'Acme Corporation',
-  defaultProducer: 'Acme PDF Generator v2.0',
-  defaultAnnotationAuthor: 'Acme System'
+  defaultCreator: 'PDF UI Studio',
+  defaultProducer: 'PDF UI Studio Platform v3.0',
+  defaultAnnotationAuthor: 'PDF UI Studio System'
 })
 
 const doc2 = new PDFDocument({
   info: {
-    Title: 'Custom Configuration Example',
-    Author: 'Jane Doe'
+    Title: 'PDF UI Studio - Platform Demo',
+    Author: 'PDF UI Studio Team'
   }
 })
 
 doc2.enableXMPMetadata()
 
-doc2.text('Custom Configuration', 200, 750, 20)
-doc2.text('This PDF uses company-specific defaults:', 100, 700, 14)
-doc2.text('• Creator: Acme Corporation', 120, 670, 12)
-doc2.text('• Producer: Acme PDF Generator v2.0', 120, 650, 12)
-doc2.text('• Annotation Author: Acme System', 120, 630, 12)
+doc2.text('PDF UI Studio Configuration', 160, 750, 20)
+doc2.text('This PDF uses PDF UI Studio defaults:', 100, 700, 14)
+doc2.text('• Creator: PDF UI Studio', 120, 670, 12)
+doc2.text('• Producer: PDF UI Studio Platform v3.0', 120, 650, 12)
+doc2.text('• Annotation Author: PDF UI Studio System', 120, 630, 12)
 
 doc2.text('Configuration applies to all new PDFs!', 100, 580, 12)
 
