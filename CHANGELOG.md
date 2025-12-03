@@ -5,6 +5,133 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-02-02
+
+### 🎉 New Text Layout Features
+
+PDFStudio v0.3.1 adds two highly-requested professional text formatting features that solve common layout challenges.
+
+### ✨ Added
+
+#### 📏 Ellipsis (Text Truncation with Overflow Indicator)
+- **`ellipsis`** option in `TextOptions` for automatic text truncation when content exceeds available height
+- Support for both boolean (`true` = "...") and custom string ellipsis characters
+- Intelligent binary search algorithm for optimal truncation point (O(log n) performance)
+- Respects word boundaries when possible
+- Works seamlessly with multi-column layout, text alignment, and all existing text features
+- Perfect for: product descriptions, article previews, content cards, summaries
+
+```typescript
+doc.text(longText, {
+  width: 200,
+  height: 60,      // Limited height
+  ellipsis: true   // Auto-truncate with "..."
+})
+
+// Custom ellipsis
+doc.text(article, {
+  width: 400,
+  height: 80,
+  ellipsis: '...[Read More]'  // Custom indicator
+})
+```
+
+#### 📐 Paragraph Gap (Precise Paragraph Spacing)
+- **`paragraphGap`** option in `TextOptions` for adding space after paragraphs
+- Measured in points for precise control
+- Automatically updates `currentY` position for seamless flow with `getCurrentY()`
+- Works with both full `TextOptions` object and simple text signature
+- Enables professional typography with consistent vertical rhythm
+- Perfect for: documentation, reports, articles, formatted documents
+
+```typescript
+doc.text('First paragraph', {
+  x: 50, y: 700,
+  width: 500,
+  paragraphGap: 20   // 20pt space after
+})
+
+doc.text('Second paragraph', {
+  x: 50,
+  y: doc.getCurrentY(),  // Auto-positioned
+  width: 500,
+  paragraphGap: 15
+})
+```
+
+### 🔧 Technical Implementation
+
+- **New Method**: `TextMeasure.truncateWithEllipsis()` - Binary search algorithm for efficient text truncation
+- **Enhanced**: `PDFWriter.text()` - Now applies ellipsis before multi-column layout for accuracy
+- **Enhanced**: `PDFWriter.text()` - Applies paragraph gap after text rendering, before graphics state restore
+- **Type Definitions**:
+  - `ellipsis?: boolean | string` in `TextOptions`
+  - `paragraphGap?: number` in `TextOptions`
+
+### 📊 Examples & Documentation
+
+- **`examples/test-ellipsis-paragraphgap.ts`** - Comprehensive test suite with 5 test cases
+- **`examples/example-product-catalog.ts`** - Real-world product catalog with truncated descriptions
+- **`examples/example-article-preview.ts`** - Newsletter with article previews using custom ellipsis
+- **`examples/example-documentation.ts`** - Professional documentation with consistent paragraph spacing
+
+### 🧪 Testing
+
+- **Unit Tests**: `tests/text/TextMeasure.test.ts` - 17 test cases for `truncateWithEllipsis()`
+- **Integration Tests**: `tests/core/PDFWriter-ellipsis-paragraphgap.test.ts` - 30+ test cases
+- All tests passing with edge case coverage
+
+### 📈 Performance
+
+- **Ellipsis Truncation**: O(log n) complexity using binary search (efficient for long texts)
+- **Paragraph Gap**: O(1) - simple Y-position adjustment
+- **Memory**: No additional memory overhead
+
+### 🎯 Use Cases
+
+1. **Product Catalogs** - Fit descriptions in fixed-size cards
+2. **Article Previews** - Show excerpts with "Read More" indicators
+3. **Content Cards** - Truncate content to fixed heights
+4. **Documentation** - Professional paragraph spacing
+5. **Reports** - Consistent vertical rhythm
+6. **Newsletters** - Preview content with ellipsis
+
+### 💡 Combined Features Example
+
+```typescript
+// Ellipsis + ParagraphGap + Multi-Column
+doc.text(longArticle, {
+  x: 50, y: 700,
+  width: 500,
+  height: 120,
+  fontSize: 10,
+  columns: 2,
+  columnGap: 20,
+  align: 'justify',
+  ellipsis: '...[Continue Reading]',
+  paragraphGap: 25  // Space before next section
+})
+
+doc.text('Next section...', {
+  x: 50,
+  y: doc.getCurrentY(),  // Automatically positioned
+  width: 500
+})
+```
+
+### 🔄 Compatibility
+
+- ✅ Fully backward compatible - existing code works without changes
+- ✅ Works with all text features: rotation, multi-column, alignment, decorations
+- ✅ Compatible with `moveDown()`, `moveUp()`, `getCurrentY()`
+- ✅ Node.js and Browser support
+
+### 📚 Breaking Changes
+
+None - this is a feature addition with full backward compatibility.
+
+---
+
 ## [0.3.0] - 2025-01-25
 
 ### 🎉 Major New Feature: Advanced Text Features & Industry-Standard API

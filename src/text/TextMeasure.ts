@@ -176,4 +176,57 @@ export class TextMeasure {
     // Standard line height is 120% of font size
     return fontSize * 1.2 + lineGap
   }
+
+  /**
+   * Truncate text to fit within max width and add ellipsis
+   * @param text Text to truncate
+   * @param maxWidth Maximum width in points
+   * @param fontSize Font size
+   * @param font Font name
+   * @param ellipsisChar Ellipsis character to use (default: '...')
+   * @returns Truncated text with ellipsis if needed
+   */
+  static truncateWithEllipsis(
+    text: string,
+    maxWidth: number,
+    fontSize: number,
+    font: PDFBaseFont = 'Helvetica',
+    ellipsisChar: string = '...'
+  ): string {
+    // Check if text fits without truncation
+    const fullWidth = this.measureText(text, fontSize, font)
+    if (fullWidth <= maxWidth) {
+      return text
+    }
+
+    // Measure ellipsis width
+    const ellipsisWidth = this.measureText(ellipsisChar, fontSize, font)
+    const availableWidth = maxWidth - ellipsisWidth
+
+    // If even the ellipsis doesn't fit, return just the ellipsis
+    if (availableWidth <= 0) {
+      return ellipsisChar
+    }
+
+    // Binary search to find the maximum number of characters that fit
+    let left = 0
+    let right = text.length
+    let bestFit = 0
+
+    while (left <= right) {
+      const mid = Math.floor((left + right) / 2)
+      const testText = text.substring(0, mid)
+      const testWidth = this.measureText(testText, fontSize, font)
+
+      if (testWidth <= availableWidth) {
+        bestFit = mid
+        left = mid + 1
+      } else {
+        right = mid - 1
+      }
+    }
+
+    // Return truncated text with ellipsis
+    return text.substring(0, bestFit) + ellipsisChar
+  }
 }

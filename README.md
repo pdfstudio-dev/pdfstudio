@@ -118,6 +118,8 @@ doc.save('sales-report.pdf')
 - **🆕 Multi-column layout** with configurable gap (v0.3.0)
 - **🆕 Text flow control** with moveDown()/moveUp() (v0.3.0)
 - **🆕 Named destinations & internal links** (v0.3.0)
+- **✨ NEW: Ellipsis truncation** for overflow handling (v0.3.1)
+- **✨ NEW: Paragraph gap** for precise spacing (v0.3.1)
 - Custom fonts (TrueType/OpenType)
 - Font optimization (ToUnicode CMap, compression, subsetting)
 - 14 base fonts + unlimited custom fonts
@@ -171,6 +173,72 @@ doc.list(['Item 1', 'Item 2', 'Item 3'], 100, 400, {
 doc.text('Chapter 1', 100, 750, 16, { destination: 'chapter1' })
 doc.text('Go to Chapter 1', 100, 500, 12, { goTo: 'chapter1' })
 ```
+
+</details>
+
+<details>
+<summary><b>📐 Text Layout Features (v0.3.1)</b></summary>
+
+**✨ NEW**: Ellipsis truncation and paragraph spacing for professional layouts
+
+- **`ellipsis`** - Auto-truncate text with "..." when exceeding height limit
+- **`paragraphGap`** - Add precise spacing after paragraphs
+- Custom ellipsis characters supported
+- Binary search algorithm for optimal truncation (O(log n))
+- Works with all text features (multi-column, rotation, alignment)
+- Perfect for content cards, previews, and professional documents
+
+```typescript
+// Ellipsis: Truncate long content
+doc.text(longDescription, {
+  x: 50, y: 500,
+  width: 200,
+  height: 60,        // Fixed height
+  ellipsis: true     // Add "..." when text exceeds height
+})
+
+// Custom ellipsis
+doc.text(articleContent, {
+  x: 50, y: 400,
+  width: 400,
+  height: 100,
+  ellipsis: '...[Read More]'  // Custom truncation indicator
+})
+
+// Paragraph gap: Professional spacing
+doc.text('First paragraph with some content.', {
+  x: 50, y: 700,
+  width: 500,
+  paragraphGap: 20   // 20pt space after this paragraph
+})
+
+doc.text('Second paragraph automatically positioned.', {
+  x: 50,
+  y: doc.getCurrentY(),  // Use current position
+  width: 500,
+  paragraphGap: 15
+})
+
+// Combined: Ellipsis + ParagraphGap + Multi-Column
+doc.text(longArticle, {
+  x: 50, y: 600,
+  width: 500,
+  height: 120,
+  fontSize: 10,
+  columns: 2,
+  columnGap: 20,
+  align: 'justify',
+  ellipsis: '…',
+  paragraphGap: 25
+})
+```
+
+**Use Cases:**
+- 📦 Product catalogs with fixed-size descriptions
+- 📰 Article previews and content cards
+- 📚 Documentation with consistent paragraph spacing
+- 🎨 Content boxes with height constraints
+- 📊 Reports with professional typography
 
 </details>
 

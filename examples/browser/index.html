@@ -199,6 +199,14 @@
       <button onclick="testTextAlignment()">Text Alignment</button>
     </div>
 
+    <!-- ADVANCED TEXT FEATURES (v0.3.1) -->
+    <h2>✨ Advanced Text Layout (v0.3.1)</h2>
+    <div class="examples">
+      <button onclick="testEllipsis()">Ellipsis - Text Truncation</button>
+      <button onclick="testParagraphGap()">Paragraph Gap - Spacing</button>
+      <button onclick="testEllipsisParagraphGap()">Combined Example</button>
+    </div>
+
     <!-- SHAPES -->
     <h2>⬜ Shapes & Lines</h2>
     <div class="examples">
@@ -497,6 +505,382 @@
 
         await doc.save('test-text-alignment.pdf');
         showStatus('✅ Text alignment test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    // ========== ADVANCED TEXT FEATURES (v0.3.1) ==========
+
+    async function testEllipsis() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Ellipsis Feature Test' });
+
+        doc.text('Ellipsis Feature (v0.3.1)', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Automatically truncate text that exceeds available height', 50, 730, 11, 'Helvetica', {
+          paragraphGap: 20
+        });
+
+        // Example 1: Default ellipsis
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Example 1: Default Ellipsis "..."', 50, doc.getCurrentY(), 14, 'Helvetica-Bold', {
+          paragraphGap: 8
+        });
+
+        const longText1 = 'This is a very long text that will be automatically truncated when it exceeds the available height. The ellipsis feature adds "..." at the end to indicate there is more content. This is perfect for creating previews, summaries, or fitting content into fixed-size boxes. '.repeat(3);
+
+        // Draw box
+        doc.setStrokeColor(0.8, 0.8, 0.9);
+        doc.setLineWidth(1);
+        doc.roundedRect(50, doc.getCurrentY() - 80, 250, 80, 4);
+        doc.stroke();
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(longText1, {
+          x: 58,
+          y: doc.getCurrentY() - 8,
+          width: 234,
+          height: 64,
+          fontSize: 10,
+          lineGap: 2,
+          ellipsis: true  // Default "..."
+        });
+
+        // Example 2: Custom ellipsis
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Example 2: Custom Ellipsis "...[Read More]"', 320, 670, 14, 'Helvetica-Bold');
+
+        const longText2 = 'Custom ellipsis allows you to provide context about truncated content. Instead of just "..." you can use "...[Read More]" or "… (continued)" to make it clear there is more content available. This is commonly used in newsletters and article previews. '.repeat(3);
+
+        // Draw box
+        doc.setStrokeColor(0.8, 0.8, 0.9);
+        doc.roundedRect(320, 582, 250, 80, 4);
+        doc.stroke();
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(longText2, {
+          x: 328,
+          y: 574,
+          width: 234,
+          height: 64,
+          fontSize: 10,
+          lineGap: 2,
+          ellipsis: '...[Read More]'  // Custom ellipsis
+        });
+
+        // Example 3: Product card
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Example 3: Product Card', 50, 500, 14, 'Helvetica-Bold');
+
+        // Product card background
+        doc.setFillColor(0.98, 0.98, 1);
+        doc.roundedRect(50, 350, 510, 130, 8);
+        doc.fill();
+
+        doc.setFillColor(0.1, 0.1, 0.1);
+        doc.text('Premium Wireless Headphones', 65, 465, 16, 'Helvetica-Bold');
+        doc.setFillColor(0.31, 0.27, 0.90);
+        doc.text('$349.99', 490, 465, 16, 'Helvetica-Bold');
+
+        const productDesc = 'Industry-leading noise cancellation technology with exceptional sound quality. Features 30-hour battery life, multipoint connection, and premium comfort padding. Perfect for travel, work, and entertainment. Includes USB-C charging, 3.5mm cable, and carrying case. Available in Black, Silver, and Blue. Advanced audio processing delivers rich, immersive sound across all frequencies.';
+
+        doc.setFillColor(0.95, 0.95, 0.98);
+        doc.roundedRect(65, 365, 480, 70, 4);
+        doc.fill();
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(productDesc, {
+          x: 75,
+          y: 425,
+          width: 460,
+          height: 60,
+          fontSize: 10,
+          align: 'justify',
+          lineGap: 2,
+          ellipsis: '...'
+        });
+
+        // Legend
+        doc.setFillColor(0.5, 0.5, 0.5);
+        doc.text('💡 Tip: Without ellipsis, text would overflow the box. With ellipsis, it fits perfectly!', 50, 320, 10, 'Helvetica-Oblique');
+
+        await doc.save('test-ellipsis.pdf');
+        showStatus('✅ Ellipsis feature test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testParagraphGap() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Paragraph Gap Feature Test' });
+
+        doc.text('Paragraph Gap Feature (v0.3.1)', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Add precise spacing after paragraphs for professional typography', 50, 730, 11, 'Helvetica', {
+          paragraphGap: 25
+        });
+
+        // Example 1: Without paragraph gap
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Example 1: Without Paragraph Gap', 50, doc.getCurrentY(), 14, 'Helvetica-Bold');
+        doc.text('(No spacing between paragraphs)', 50, doc.getCurrentY() - 15, 10, 'Helvetica-Oblique');
+
+        const y1 = doc.getCurrentY() - 30;
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text('First paragraph without gap.', 50, y1, 11);
+        doc.text('Second paragraph immediately follows.', 50, y1 - 14, 11);
+        doc.text('Third paragraph also too close.', 50, y1 - 28, 11);
+
+        // Example 2: With paragraph gap
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Example 2: With Paragraph Gap (12pt)', 320, 680, 14, 'Helvetica-Bold');
+        doc.text('(Professional spacing)', 320, 665, 10, 'Helvetica-Oblique');
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text('First paragraph with 12pt gap.', {
+          x: 320,
+          y: 640,
+          fontSize: 11,
+          paragraphGap: 12
+        });
+
+        doc.text('Second paragraph properly spaced.', {
+          x: 320,
+          y: doc.getCurrentY(),
+          fontSize: 11,
+          paragraphGap: 12
+        });
+
+        doc.text('Third paragraph also well-spaced.', {
+          x: 320,
+          y: doc.getCurrentY(),
+          fontSize: 11,
+          paragraphGap: 12
+        });
+
+        // Example 3: Document with consistent rhythm
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Example 3: Document with Consistent Rhythm', 50, 540, 14, 'Helvetica-Bold', {
+          paragraphGap: 15
+        });
+
+        doc.text('Section Heading', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 13,
+          font: 'Helvetica-Bold',
+          paragraphGap: 10
+        });
+
+        const para1 = 'This is the first paragraph with proper spacing. It demonstrates how paragraphGap creates visual hierarchy and improves readability.';
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(para1, {
+          x: 50,
+          y: doc.getCurrentY(),
+          width: 510,
+          fontSize: 11,
+          align: 'justify',
+          lineGap: 2,
+          paragraphGap: 12
+        });
+
+        const para2 = 'The second paragraph follows with consistent spacing. Notice how the document feels more professional and easier to read.';
+        doc.text(para2, {
+          x: 50,
+          y: doc.getCurrentY(),
+          width: 510,
+          fontSize: 11,
+          align: 'justify',
+          lineGap: 2,
+          paragraphGap: 20
+        });
+
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('Another Section', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 13,
+          font: 'Helvetica-Bold',
+          paragraphGap: 10
+        });
+
+        const para3 = 'This third paragraph shows how larger gaps create clear section breaks while maintaining visual flow.';
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(para3, {
+          x: 50,
+          y: doc.getCurrentY(),
+          width: 510,
+          fontSize: 11,
+          align: 'justify',
+          lineGap: 2,
+          paragraphGap: 12
+        });
+
+        // Common gap values reference
+        doc.setFillColor(0.95, 0.95, 0.98);
+        doc.roundedRect(50, 220, 510, 80, 8);
+        doc.fill();
+
+        doc.setFillColor(0.2, 0.2, 0.2);
+        doc.text('📏 Common Paragraph Gap Values', 60, 285, 12, 'Helvetica-Bold');
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text('• 6-8pt: Tight spacing (lists, dense content)', 60, 265, 10);
+        doc.text('• 10-12pt: Normal spacing (body paragraphs)', 60, 250, 10);
+        doc.text('• 15-20pt: Section breaks (headings to content)', 60, 235, 10);
+
+        doc.setFillColor(0.5, 0.5, 0.5);
+        doc.text('💡 Tip: Use consistent gap values throughout your document for professional results.', 50, 195, 10, 'Helvetica-Oblique');
+
+        await doc.save('test-paragraph-gap.pdf');
+        showStatus('✅ Paragraph gap feature test completed!');
+      } catch (error) {
+        showStatus('❌ Error: ' + error.message, true);
+        console.error(error);
+      }
+    }
+
+    async function testEllipsisParagraphGap() {
+      try {
+        const { PDFDocument } = PDFStudio;
+        const doc = new PDFDocument({ title: 'Combined Features Test' });
+
+        doc.text('Ellipsis + Paragraph Gap (v0.3.1)', 50, 750, 20, 'Helvetica-Bold');
+        doc.text('Both features working together for professional layouts', 50, 730, 11, 'Helvetica', {
+          paragraphGap: 25
+        });
+
+        // Newsletter header
+        doc.setFillColor(0.15, 0.23, 0.47);
+        doc.rect(0, 658, 612, 35);
+        doc.fill();
+
+        doc.setFillColor(1, 1, 1);
+        doc.text('TECH INSIGHTS', 50, 680, 18, 'Helvetica-Bold');
+        doc.text('Weekly Newsletter • Issue #247', 50, 664, 9);
+
+        // Article 1
+        doc.setFillColor(0.1, 0.1, 0.1);
+        doc.text('The Future of Quantum Computing', {
+          x: 50,
+          y: 630,
+          fontSize: 14,
+          font: 'Helvetica-Bold',
+          paragraphGap: 5
+        });
+
+        doc.setFillColor(0.4, 0.4, 0.4);
+        doc.text('By Dr. Sarah Chen • 8 min read', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 9,
+          paragraphGap: 8
+        });
+
+        const article1 = 'Quantum computing has long promised to revolutionize computing, but error rates have held it back. Recent breakthroughs at MIT and Google have demonstrated new error-correction techniques that could finally make quantum computers practical for real-world applications. The new approach uses topological qubits that are inherently more stable.';
+
+        doc.setFillColor(0.99, 0.99, 1);
+        doc.roundedRect(50, doc.getCurrentY() - 50, 510, 50, 4);
+        doc.fill();
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(article1, {
+          x: 58,
+          y: doc.getCurrentY() - 8,
+          width: 494,
+          height: 36,
+          fontSize: 10,
+          align: 'justify',
+          lineGap: 2,
+          ellipsis: '...[Read More]',
+          paragraphGap: 15
+        });
+
+        // Article 2
+        doc.setFillColor(0.1, 0.1, 0.1);
+        doc.text('AI Ethics Framework Announced', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 14,
+          font: 'Helvetica-Bold',
+          paragraphGap: 5
+        });
+
+        doc.setFillColor(0.4, 0.4, 0.4);
+        doc.text('By Michael Rodriguez • 5 min read', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 9,
+          paragraphGap: 8
+        });
+
+        const article2 = 'A coalition of major tech companies including Microsoft, Google, and OpenAI have jointly proposed a comprehensive framework for ethical AI development and deployment. The framework addresses key concerns around bias, transparency, privacy, and accountability. It includes mandatory third-party audits and transparency requirements.';
+
+        doc.setFillColor(0.99, 0.99, 1);
+        doc.roundedRect(50, doc.getCurrentY() - 50, 510, 50, 4);
+        doc.fill();
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(article2, {
+          x: 58,
+          y: doc.getCurrentY() - 8,
+          width: 494,
+          height: 36,
+          fontSize: 10,
+          align: 'justify',
+          lineGap: 2,
+          ellipsis: '...[Read More]',
+          paragraphGap: 15
+        });
+
+        // Article 3
+        doc.setFillColor(0.1, 0.1, 0.1);
+        doc.text('Green Data Centers Leading Change', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 14,
+          font: 'Helvetica-Bold',
+          paragraphGap: 5
+        });
+
+        doc.setFillColor(0.4, 0.4, 0.4);
+        doc.text('By Emma Watson • 6 min read', {
+          x: 50,
+          y: doc.getCurrentY(),
+          fontSize: 9,
+          paragraphGap: 8
+        });
+
+        const article3 = 'Data centers consume approximately 1% of global electricity, but tech companies are making dramatic strides in sustainability. Amazon, Microsoft, and Google have all committed to carbon-neutral data centers by 2030, and they are ahead of schedule. Innovations include AI-optimized cooling systems and renewable energy contracts.';
+
+        doc.setFillColor(0.99, 0.99, 1);
+        doc.roundedRect(50, doc.getCurrentY() - 50, 510, 50, 4);
+        doc.fill();
+
+        doc.setFillColor(0.3, 0.3, 0.3);
+        doc.text(article3, {
+          x: 58,
+          y: doc.getCurrentY() - 8,
+          width: 494,
+          height: 36,
+          fontSize: 10,
+          align: 'justify',
+          lineGap: 2,
+          ellipsis: '...[Read More]',
+          paragraphGap: 15
+        });
+
+        // Footer
+        doc.setFillColor(0.5, 0.5, 0.5);
+        doc.text('💡 Each article preview uses ellipsis for truncation + paragraphGap for spacing', 50, 180, 10, 'Helvetica-Oblique');
+        doc.text('This creates a professional newsletter layout that fits perfectly on the page.', 50, 165, 10, 'Helvetica-Oblique');
+
+        await doc.save('test-ellipsis-paragraph-gap-combined.pdf');
+        showStatus('✅ Combined features test completed!');
       } catch (error) {
         showStatus('❌ Error: ' + error.message, true);
         console.error(error);

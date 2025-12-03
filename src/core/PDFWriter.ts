@@ -1615,6 +1615,19 @@ export class PDFWriter {
       lines = [text]
     }
 
+    // Apply ellipsis if text exceeds available height
+    if (options.ellipsis && options.height && width) {
+      const maxLines = Math.floor(options.height / lineHeight)
+      if (lines.length > maxLines && maxLines > 0) {
+        // Truncate to max lines and add ellipsis to last line
+        lines = lines.slice(0, maxLines)
+        const ellipsisChar = typeof options.ellipsis === 'string' ? options.ellipsis : '...'
+        const lastLine = lines[maxLines - 1]
+        const effectiveWidth = columnWidth > 0 ? columnWidth : width
+        lines[maxLines - 1] = TextMeasure.truncateWithEllipsis(lastLine, effectiveWidth, fontSize, baseFont, ellipsisChar)
+      }
+    }
+
     // For multi-column layout, split lines into columns
     if (columns > 1 && options.height) {
       const linesPerColumn = Math.floor(options.height / lineHeight)
@@ -1636,6 +1649,11 @@ export class PDFWriter {
       this.currentY = y - options.height
       this.currentFontSize = fontSize
       this.currentLineHeight = lineHeight
+
+      // Apply paragraph gap if specified
+      if (options.paragraphGap) {
+        this.currentY -= options.paragraphGap
+      }
 
       // Restore graphics state if rotation was applied
       if (hasRotation) {
@@ -1775,6 +1793,11 @@ export class PDFWriter {
     this.currentY = currentY
     this.currentFontSize = fontSize
     this.currentLineHeight = lineHeight  // Track for moveDown/moveUp
+
+    // Apply paragraph gap if specified
+    if (options.paragraphGap) {
+      this.currentY -= options.paragraphGap
+    }
 
     // Restore graphics state if rotation was applied
     if (hasRotation) {
