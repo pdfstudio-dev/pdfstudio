@@ -58,7 +58,7 @@ doc.save('sales-report.pdf')
 
 ### Key Differentiators
 
-| Feature | PDFStudio v0.3.0 | PDFKit | jsPDF | pdfmake |
+| Feature | PDFStudio v0.3.2 | PDFKit | jsPDF | pdfmake |
 |---------|------------------|--------|-------|---------|
 | **Browser Support** | ✅ **Native** | ❌ Node only | ✅ | ✅ |
 | **Node.js Support** | ✅ | ✅ | ⚠️ Limited | ✅ |
