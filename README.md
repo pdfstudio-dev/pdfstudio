@@ -78,17 +78,85 @@ doc.save('sales-report.pdf')
 
 ## ✨ Features
 
-<details>
+<details open>
 <summary><b>📊 Charts & Visualizations (7 Types)</b></summary>
 
-- **Bar Charts** - Vertical & horizontal with gradients and shadows
-- **Grouped Bar Charts** - Multiple series side-by-side
-- **Stacked Bar Charts** - Cumulative data visualization
-- **Line Charts** - Smooth or straight lines with area fill
-- **Multi-Line Charts** - Multiple series on shared axes
-- **Pie Charts** - Automatic percentage calculation
-- **Donut Charts** - Center hole with custom text
-- **Chart Features**: Legends (6 positions), grids, gradients, shadows, borders
+<table>
+<tr>
+<td width="33%">
+
+### Bar Charts
+Vertical & horizontal bars with gradients and shadows
+
+![Bar Chart](docs/images/charts/bar-chart.png)
+
+</td>
+<td width="33%">
+
+### Grouped Bar Charts
+Multiple series side-by-side comparison
+
+![Grouped Bar Chart](docs/images/charts/grouped-bar-chart.png)
+
+</td>
+<td width="33%">
+
+### Stacked Bar Charts
+Cumulative data visualization
+
+![Stacked Bar Chart](docs/images/charts/stacked-bar-chart.png)
+
+</td>
+</tr>
+<tr>
+<td width="33%">
+
+### Line Charts
+Smooth or straight lines with area fill
+
+![Line Chart](docs/images/charts/line-chart.png)
+
+</td>
+<td width="33%">
+
+### Multi-Line Charts
+Multiple series on shared axes
+
+![Multi-Line Chart](docs/images/charts/multi-line-chart.png)
+
+</td>
+<td width="33%">
+
+### Pie Charts
+Automatic percentage calculation
+
+![Pie Chart](docs/images/charts/pie-chart.png)
+
+</td>
+</tr>
+<tr>
+<td width="33%">
+
+### Donut Charts
+Center hole with custom text
+
+![Donut Chart](docs/images/charts/donut-chart.png)
+
+</td>
+<td colspan="2">
+
+**✨ Chart Features**:
+- 🎨 Legends (6 positions: top, bottom, left, right, top-right, top-left)
+- 📏 Customizable grids with configurable line styles
+- 🌈 Linear & radial gradients with multiple color stops
+- ✨ Drop shadows with blur and offset control
+- 🎯 Custom borders with rounded corners
+- 📊 Value labels and data point markers
+- 🔄 Automatic scaling and axis generation
+
+</td>
+</tr>
+</table>
 
 </details>
 
