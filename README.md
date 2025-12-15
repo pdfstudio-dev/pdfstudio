@@ -9,7 +9,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D14-green.svg)](https://nodejs.org/)
 [![Browser](https://img.shields.io/badge/Browser-Compatible-success.svg)](BROWSER.md)
-[![Tests](https://img.shields.io/badge/tests-180%20passing-brightgreen.svg)](https://github.com/pdfstudio-dev/pdfstudio)
+[![Tests](https://img.shields.io/badge/tests-268%20passing-brightgreen.svg)](https://github.com/pdfstudio-dev/pdfstudio)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Browser Support](#-browser-support) • [Examples](#-examples) • [API](#-api-reference) • [Documentation](#-documentation)
 

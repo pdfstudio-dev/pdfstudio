@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2025-02-14
+
+### 🐛 Bug Fixes
+
+#### Table Header Positioning (Critical Bug Fix)
+- **Fixed table headers rendering below data rows instead of above**
+- Root cause: Incorrect handling of PDF coordinate system where Y-axis grows upward from bottom
+- Solution: Comprehensive coordinate system overhaul in Table.ts affecting 8 critical locations:
+  - Changed `rect(x, y, width, height)` to `rect(x, y, width, -height)` for downward drawing (3 locations)
+  - Inverted `calculateTextY()` logic to properly position text in downward-drawing cells
+  - Fixed header border Y position from `y + height` to `y - height`
+  - Fixed row border Y position from `y + height` to `y - height`
+  - Corrected vertical border drawing direction
+  - Rewrote outer borders logic to properly handle top/bottom/left/right borders
+
+### ✅ Testing
+- Added comprehensive table test suite with 39 new unit tests
+- Total test count increased from 229 to 268 tests
+- All tests passing (268/268)
+- Coverage includes: basic rendering, column handling, styling, alignment, borders, page breaks, edge cases
+
 ## [0.3.1] - 2025-02-02
 
 ### 🎉 New Text Layout Features

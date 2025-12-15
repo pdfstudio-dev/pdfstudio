@@ -1,6 +1,6 @@
 {
   "name": "@pdfstudio/pdfstudio",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Professional PDF generation library for Node.js and Browsers. Features native charts, advanced vector graphics, QR codes, interactive forms, and complete TypeScript support.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -84,7 +84,7 @@ export class Table {
     const headerHeight = this.options.headerStyle?.height || this.options.rowHeight!
     if (columns.length > 0) {
       this.drawHeader(columns, columnWidths, startX, currentY, headerHeight)
-      currentY += headerHeight
+      currentY -= headerHeight
     }
 
     // Draw rows
@@ -92,7 +92,7 @@ export class Table {
       const rowHeight = this.options.rowHeight!
 
       // Check if we need a page break
-      if (autoPageBreak && currentY + rowHeight > pageHeight - bottomMargin) {
+      if (autoPageBreak && currentY - rowHeight < bottomMargin) {
         // Add a new page
         this.writer.addPage()
 
@@ -103,12 +103,12 @@ export class Table {
         // Repeat header if enabled
         if (repeatHeader && columns.length > 0) {
           this.drawHeader(columns, columnWidths, startX, currentY, headerHeight)
-          currentY += headerHeight
+          currentY -= headerHeight
         }
       }
 
       this.drawRow(row, columns, columnWidths, startX, currentY, rowHeight, rowIndex)
-      currentY += rowHeight
+      currentY -= rowHeight
     })
 
     // Draw outer borders if needed (only if not using auto page breaks)
@@ -220,7 +220,8 @@ export class Table {
       const [r, g, b] = parseColor(headerStyle.backgroundColor)
       this.writer.setFillColor(r, g, b)
       const totalWidth = columnWidths.reduce((sum, w) => sum + w, 0)
-      this.writer.rect(x, y, totalWidth, height)
+      // Use negative height to draw downward from y position
+      this.writer.rect(x, y, totalWidth, -height)
       this.writer.fill()
     }
 
@@ -251,9 +252,9 @@ export class Table {
       currentX += cellWidth
     })
 
-    // Draw header separator
+    // Draw header separator (at bottom of header)
     if (this.shouldDrawBorder('header')) {
-      this.drawHorizontalBorder(x, y + height, columnWidths.reduce((s, w) => s + w, 0))
+      this.drawHorizontalBorder(x, y - height, columnWidths.reduce((s, w) => s + w, 0))
     }
   }
 
@@ -274,7 +275,8 @@ export class Table {
       const [r, g, b] = parseColor(this.options.alternateRowColor)
       this.writer.setFillColor(r, g, b)
       const totalWidth = columnWidths.reduce((sum, w) => sum + w, 0)
-      this.writer.rect(x, y, totalWidth, height)
+      // Use negative height to draw downward from y position
+      this.writer.rect(x, y, totalWidth, -height)
       this.writer.fill()
     }
 
@@ -288,7 +290,8 @@ export class Table {
       if (normalizedCell.backgroundColor) {
         const [r, g, b] = parseColor(normalizedCell.backgroundColor)
         this.writer.setFillColor(r, g, b)
-        this.writer.rect(currentX, y, cellWidth, height)
+        // Use negative height to draw downward from y position
+        this.writer.rect(currentX, y, cellWidth, -height)
         this.writer.fill()
       }
 
@@ -312,9 +315,9 @@ export class Table {
       currentX += cellWidth
     })
 
-    // Draw horizontal border after row (if not last)
+    // Draw horizontal border after row (at bottom of row)
     if (this.shouldDrawBorder('horizontal')) {
-      this.drawHorizontalBorder(x, y + height, columnWidths.reduce((s, w) => s + w, 0))
+      this.drawHorizontalBorder(x, y - height, columnWidths.reduce((s, w) => s + w, 0))
     }
   }
 
@@ -372,7 +375,7 @@ export class Table {
 
   /**
    * Calculate text Y position based on vertical alignment
-   * Note: In PDF coordinates, Y grows upward from bottom.
+   * Note: cellY is the TOP of the cell, and cells draw downward with negative height.
    * Text is drawn at the baseline (roughly 30% of fontSize above the bottom of the character)
    */
   private calculateTextY(
@@ -387,16 +390,16 @@ export class Table {
 
     switch (valign) {
       case 'top':
-        // Top of cell, accounting for padding and descenders
-        return cellY + cellHeight - padding - baselineOffset
+        // Top of cell (cellY is top), move down by padding and font height, up by baseline
+        return cellY - padding - fontSize + baselineOffset
       case 'middle':
         // Center of cell, adjusted for baseline
-        return cellY + cellHeight / 2 + baselineOffset
+        return cellY - cellHeight / 2 + baselineOffset
       case 'bottom':
         // Bottom of cell, accounting for padding and baseline
-        return cellY + padding + fontSize - baselineOffset
+        return cellY - cellHeight + padding + baselineOffset
       default:
-        return cellY + cellHeight / 2 + baselineOffset
+        return cellY - cellHeight / 2 + baselineOffset
     }
   }
 
@@ -477,29 +480,20 @@ export class Table {
     this.writer.setStrokeColor(r, g, b)
     this.writer.setLineWidth(style.width!)
 
+    // Draw from top (y) to bottom (y - height)
     this.writer.moveTo(x, y)
-    this.writer.lineTo(x, y + height)
+    this.writer.lineTo(x, y - height)
     this.writer.stroke()
   }
 
   /**
    * Draw outer borders
+   * Note: y is the TOP of the table, height extends downward
    */
   private drawOuterBorders(x: number, y: number, width: number, height: number): void {
-    // Top
+    // Top border (at y)
     if (this.shouldDrawBorder('top')) {
       const style = this.getBorderStyle('top')
-      const [r, g, b] = parseColor(style.color!)
-      this.writer.setStrokeColor(r, g, b)
-      this.writer.setLineWidth(style.width!)
-      this.writer.moveTo(x, y + height)
-      this.writer.lineTo(x + width, y + height)
-      this.writer.stroke()
-    }
-
-    // Bottom
-    if (this.shouldDrawBorder('bottom')) {
-      const style = this.getBorderStyle('bottom')
       const [r, g, b] = parseColor(style.color!)
       this.writer.setStrokeColor(r, g, b)
       this.writer.setLineWidth(style.width!)
@@ -508,25 +502,36 @@ export class Table {
       this.writer.stroke()
     }
 
-    // Left
+    // Bottom border (at y - height)
+    if (this.shouldDrawBorder('bottom')) {
+      const style = this.getBorderStyle('bottom')
+      const [r, g, b] = parseColor(style.color!)
+      this.writer.setStrokeColor(r, g, b)
+      this.writer.setLineWidth(style.width!)
+      this.writer.moveTo(x, y - height)
+      this.writer.lineTo(x + width, y - height)
+      this.writer.stroke()
+    }
+
+    // Left border (from y to y - height)
     if (this.shouldDrawBorder('left')) {
       const style = this.getBorderStyle('left')
       const [r, g, b] = parseColor(style.color!)
       this.writer.setStrokeColor(r, g, b)
       this.writer.setLineWidth(style.width!)
       this.writer.moveTo(x, y)
-      this.writer.lineTo(x, y + height)
+      this.writer.lineTo(x, y - height)
       this.writer.stroke()
     }
 
-    // Right
+    // Right border (from y to y - height)
     if (this.shouldDrawBorder('right')) {
       const style = this.getBorderStyle('right')
       const [r, g, b] = parseColor(style.color!)
       this.writer.setStrokeColor(r, g, b)
       this.writer.setLineWidth(style.width!)
       this.writer.moveTo(x + width, y)
-      this.writer.lineTo(x + width, y + height)
+      this.writer.lineTo(x + width, y - height)
       this.writer.stroke()
     }
   }
