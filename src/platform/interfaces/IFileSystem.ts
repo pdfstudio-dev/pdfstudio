@@ -8,24 +8,24 @@ export interface IFileSystem {
    * Node.js: reads from filesystem
    * Browser: fetches from URL or reads from File object
    */
-  readFile(source: string | File | Buffer): Promise<Buffer>
+  readFile(source: string | File | Buffer): Promise<Buffer>;
 
   /**
    * Write file to path or download
    * Node.js: writes to filesystem
    * Browser: triggers download
    */
-  writeFile(filename: string, data: Buffer): Promise<void>
+  writeFile(filename: string, data: Buffer): Promise<void>;
 
   /**
    * Check if file exists
    * Node.js: checks filesystem
    * Browser: always returns false (or check via fetch)
    */
-  existsSync(path: string): boolean
+  existsSync(path: string): boolean;
 
   /**
    * Check if running in browser
    */
-  isBrowser(): boolean
+  isBrowser(): boolean;
 }

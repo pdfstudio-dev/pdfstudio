@@ -1,5 +1,6 @@
-import * as fs from 'fs'
-import { IFileSystem } from '../interfaces/IFileSystem'
+import * as fs from 'fs';
+import { IFileSystem } from '../interfaces/IFileSystem';
+import { ValidationError } from '../../errors';
 
 /**
  * NodeFileSystem - Node.js implementation using fs module
@@ -7,25 +8,28 @@ import { IFileSystem } from '../interfaces/IFileSystem'
 export class NodeFileSystem implements IFileSystem {
   async readFile(source: string | File | Buffer): Promise<Buffer> {
     if (Buffer.isBuffer(source)) {
-      return source
+      return source;
     }
 
     if (typeof source === 'string') {
-      return fs.readFileSync(source)
+      return fs.readFileSync(source);
     }
 
-    throw new Error('File objects are not supported in Node.js. Use file path or Buffer.')
+    throw new ValidationError(
+      'File objects are not supported in Node.js. Use file path or Buffer.',
+      'source'
+    );
   }
 
   async writeFile(filename: string, data: Buffer): Promise<void> {
-    fs.writeFileSync(filename, data)
+    fs.writeFileSync(filename, data);
   }
 
   existsSync(path: string): boolean {
-    return fs.existsSync(path)
+    return fs.existsSync(path);
   }
 
   isBrowser(): boolean {
-    return false
+    return false;
   }
 }

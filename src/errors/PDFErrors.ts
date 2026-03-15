@@ -7,12 +7,15 @@
  * Base error class for all PDFStudio errors
  */
 export class PDFStudioError extends Error {
-  constructor(message: string, public readonly code?: string) {
-    super(message)
-    this.name = 'PDFStudioError'
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
+    super(message);
+    this.name = 'PDFStudioError';
     // Maintains proper stack trace for where our error was thrown (only available on V8)
     if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor)
+      Error.captureStackTrace(this, this.constructor);
     }
   }
 }
@@ -24,10 +27,10 @@ export class ValidationError extends PDFStudioError {
   constructor(
     message: string,
     public readonly parameterName?: string,
-    public readonly value?: any
+    public readonly value?: unknown
   ) {
-    super(message, 'VALIDATION_ERROR')
-    this.name = 'ValidationError'
+    super(message, 'VALIDATION_ERROR');
+    this.name = 'ValidationError';
   }
 }
 
@@ -40,8 +43,8 @@ export class FontError extends PDFStudioError {
     public readonly fontName?: string,
     public readonly cause?: Error
   ) {
-    super(message, 'FONT_ERROR')
-    this.name = 'FontError'
+    super(message, 'FONT_ERROR');
+    this.name = 'FontError';
   }
 }
 
@@ -54,8 +57,8 @@ export class ImageError extends PDFStudioError {
     public readonly imageSource?: string,
     public readonly cause?: Error
   ) {
-    super(message, 'IMAGE_ERROR')
-    this.name = 'ImageError'
+    super(message, 'IMAGE_ERROR');
+    this.name = 'ImageError';
   }
 }
 
@@ -68,8 +71,8 @@ export class ChartDataError extends PDFStudioError {
     public readonly chartType?: string,
     public readonly dataIssue?: string
   ) {
-    super(message, 'CHART_DATA_ERROR')
-    this.name = 'ChartDataError'
+    super(message, 'CHART_DATA_ERROR');
+    this.name = 'ChartDataError';
   }
 }
 
@@ -82,8 +85,8 @@ export class PageError extends PDFStudioError {
     public readonly pageIndex?: number,
     public readonly totalPages?: number
   ) {
-    super(message, 'PAGE_ERROR')
-    this.name = 'PageError'
+    super(message, 'PAGE_ERROR');
+    this.name = 'PageError';
   }
 }
 
@@ -91,9 +94,12 @@ export class PageError extends PDFStudioError {
  * Thrown when PDF generation fails
  */
 export class PDFGenerationError extends PDFStudioError {
-  constructor(message: string, public readonly cause?: Error) {
-    super(message, 'PDF_GENERATION_ERROR')
-    this.name = 'PDFGenerationError'
+  constructor(
+    message: string,
+    public readonly cause?: Error
+  ) {
+    super(message, 'PDF_GENERATION_ERROR');
+    this.name = 'PDFGenerationError';
   }
 }
 
@@ -101,9 +107,12 @@ export class PDFGenerationError extends PDFStudioError {
  * Thrown when compression/decompression fails
  */
 export class CompressionError extends PDFStudioError {
-  constructor(message: string, public readonly cause?: Error) {
-    super(message, 'COMPRESSION_ERROR')
-    this.name = 'CompressionError'
+  constructor(
+    message: string,
+    public readonly cause?: Error
+  ) {
+    super(message, 'COMPRESSION_ERROR');
+    this.name = 'CompressionError';
   }
 }
 
@@ -111,8 +120,11 @@ export class CompressionError extends PDFStudioError {
  * Thrown when encryption/decryption fails
  */
 export class EncryptionError extends PDFStudioError {
-  constructor(message: string, public readonly cause?: Error) {
-    super(message, 'ENCRYPTION_ERROR')
-    this.name = 'EncryptionError'
+  constructor(
+    message: string,
+    public readonly cause?: Error
+  ) {
+    super(message, 'ENCRYPTION_ERROR');
+    this.name = 'EncryptionError';
   }
 }

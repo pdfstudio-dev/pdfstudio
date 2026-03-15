@@ -1,18 +1,85 @@
-import * as pako from 'pako'
-import * as crypto from 'crypto'
-import { PageNumberOptions, PageNumberFormat, PDFEncoding, PDFBaseFont, FontOptions, DocumentInfo, PDFSecurityOptions, ImageInfo, ImageOptions, TextOptions, TextAlign, Color, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, BezierCurve, Point, HeaderFooterOptions, HeaderOptions, FooterOptions, HeaderFooterContent, PageRule, Gradient, LinearGradientOptions, RadialGradientOptions, ColorStop, TilingPatternOptions, BookmarkOptions, BookmarkDestination, FormOptions, FormField, SignatureFieldOptions, PDFAOptions, Annotation, Watermark, Link, PageRotation, ExtendedMetadata, CompressionOptions, FileAttachment, FileAttachmentAnnotation, CustomFont, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, QRCodeOptions, NamedDestination, GoToLink, ListOptions, BulletStyle } from '../types'
-import { PDFEncryption } from '../security/PDFEncryption'
-import { ImageParser } from '../images/ImageParser'
-import { TextMeasure } from '../text/TextMeasure'
-import { generateXMPMetadata } from '../utils/xmp'
-import { FontManager, FontInfo } from '../fonts/FontManager'
-import { substituteUnicode } from '../utils/unicode-substitution'
-import { SVGPathConverter } from '../utils/SVGPathParser'
-import { QRCodeGenerator } from '../qrcode/QRCodeGenerator'
-import { CompressionError } from '../errors'
-import { logger } from '../utils/logger'
-import { getConfig } from '../config/defaults'
-import { PlatformFactory } from '../platform'
+import * as pako from 'pako';
+import * as crypto from 'crypto';
+import {
+  PageNumberOptions,
+  PageNumberFormat,
+  PDFEncoding,
+  PDFBaseFont,
+  FontOptions,
+  DocumentInfo,
+  PDFSecurityOptions,
+  ImageInfo,
+  ImageOptions,
+  TextOptions,
+  TextAlign,
+  Color,
+  CircleOptions,
+  EllipseOptions,
+  PolygonOptions,
+  ArcOptions,
+  SectorOptions,
+  BezierCurve,
+  Point,
+  HeaderFooterOptions,
+  HeaderOptions,
+  FooterOptions,
+  HeaderFooterContent,
+  PageRule,
+  Gradient,
+  LinearGradientOptions,
+  RadialGradientOptions,
+  ColorStop,
+  TilingPatternOptions,
+  BookmarkOptions,
+  BookmarkDestination,
+  FormOptions,
+  FormField,
+  SignatureFieldOptions,
+  PDFAOptions,
+  Annotation,
+  Watermark,
+  Link,
+  PageRotation,
+  ExtendedMetadata,
+  CompressionOptions,
+  FileAttachment,
+  FileAttachmentAnnotation,
+  CustomFont,
+  FormXObjectOptions,
+  FormXObjectPlacementOptions,
+  LayerOptions,
+  TextOutlineOptions,
+  TextRenderingMode,
+  QRCodeOptions,
+  NamedDestination,
+  GoToLink,
+  ListOptions,
+  BulletStyle,
+} from '../types';
+import { PDFEncryption } from '../security/PDFEncryption';
+import { ImageParser } from '../images/ImageParser';
+import { TextMeasure } from '../text/TextMeasure';
+import { generateXMPMetadata } from '../utils/xmp';
+import { FontManager, FontInfo } from '../fonts/FontManager';
+import { substituteUnicode } from '../utils/unicode-substitution';
+import { SVGPathConverter } from '../utils/SVGPathParser';
+import { QRCodeGenerator } from '../qrcode/QRCodeGenerator';
+import {
+  CompressionError,
+  FontError,
+  PageError,
+  ValidationError,
+  PDFGenerationError,
+} from '../errors';
+import { logger } from '../utils/logger';
+import {
+  validateFiniteNumber,
+  validatePositiveNumber,
+  validateRGBColor,
+  validateLineWidth,
+} from '../utils/validation';
+import { getConfig } from '../config/defaults';
+import { PlatformFactory } from '../platform';
 import {
   ImageManager,
   GradientManager,
@@ -20,94 +87,135 @@ import {
   WatermarkManager,
   LayerManager,
   PatternManager,
-  GraphicsStateManager
-} from './managers'
+  GraphicsStateManager,
+} from './managers';
 
 /**
  * PDF Object
  */
 interface PDFObject {
-  id: number
-  data: string
+  id: number;
+  data: string;
+}
+
+/**
+ * Shared state passed between extracted generate() helper methods.
+ */
+interface GenerationContext {
+  objects: PDFObject[];
+  currentObjectId: number;
+  infoObjectId: number;
+  catalogId: number;
+  pagesObjectId: number;
+  pageObjectIds: number[];
+  firstPageObjectId: number;
+  fontObjectIds: Map<PDFBaseFont, number>;
+  customFontObjectIds: Map<
+    string,
+    { fontId: number; descriptorId: number; fileId: number; toUnicodeId: number }
+  >;
+  imageObjectIds: Map<number, number>;
+  gradientShadingIds: Map<string, number>;
+  gradientPatternIds: Map<string, number>;
+  tilingPatternIds: Map<string, number>;
+  formXObjectIds: Map<string, number>;
+  layerObjectIds: Map<string, number>;
+  ocPropertiesId: number;
+  annotationObjectIds: Map<number, number[]>;
+  advancedAnnotationIds: number[];
+  newAnnotationObjectIds: number[];
+  acroFormId: number | null;
+  fieldObjectIds: number[];
+  signatureObjectIds: number[];
+  outlinesRootId: number | null;
+  bookmarkObjectIds: Map<BookmarkOptions, number>;
+  namesTreeId: number | null;
+  attachmentFileSpecIds: number[];
+  attachmentEmbeddedFileIds: number[];
+  attachmentAnnotationIds: number[];
+  extGStateObjectIds: Map<string, number>;
+  metadataObjectId: number | null;
+  outputIntentId: number | null;
 }
 
 /**
  * Link annotation
  */
 interface LinkAnnotation {
-  x: number
-  y: number
-  width: number
-  height: number
-  url: string
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  url: string;
 }
 
 /**
  * Page data
  */
 interface PageData {
-  content: string[]
-  width: number
-  height: number
-  annotations: LinkAnnotation[]
-  linkAnnots?: number[]  // IDs of link annotations for this page
-  rotation?: number      // Page rotation in degrees (0, 90, 180, 270)
+  content: string[];
+  width: number;
+  height: number;
+  annotations: LinkAnnotation[];
+  linkAnnots?: number[]; // IDs of link annotations for this page
+  rotation?: number; // Page rotation in degrees (0, 90, 180, 270)
 }
 
 /**
  * PDFWriter - Handles low-level PDF generation with multi-page support
  */
 export class PDFWriter {
-  private defaultPageWidth: number
-  private defaultPageHeight: number
-  private pages: PageData[] = []
-  private currentPageIndex: number = 0
-  private pageNumberOptions: PageNumberOptions | null = null
-  private headerFooterOptions: HeaderFooterOptions | null = null
-  private encoding: PDFEncoding
-  private baseFont: PDFBaseFont
-  private info: DocumentInfo
-  private pdfVersion: string
-  private documentId: string
-  private encryption: PDFEncryption | null = null
+  private defaultPageWidth: number;
+  private defaultPageHeight: number;
+  private pages: PageData[] = [];
+  private currentPageIndex: number = 0;
+  private pageNumberOptions: PageNumberOptions | null = null;
+  private headerFooterOptions: HeaderFooterOptions | null = null;
+  private encoding: PDFEncoding;
+  private baseFont: PDFBaseFont;
+  private info: DocumentInfo;
+  private pdfVersion: string;
+  private documentId: string;
+  private encryption: PDFEncryption | null = null;
 
   // Resource managers
-  private imageManager: ImageManager = new ImageManager()
-  private gradientManager: GradientManager = new GradientManager()
-  private annotationManager: AnnotationManager = new AnnotationManager()
-  private watermarkManager: WatermarkManager = new WatermarkManager()
-  private layerManager: LayerManager = new LayerManager()
-  private patternManager: PatternManager = new PatternManager()
-  private graphicsStateManager: GraphicsStateManager = new GraphicsStateManager()
+  private imageManager: ImageManager = new ImageManager();
+  private gradientManager: GradientManager = new GradientManager();
+  private annotationManager: AnnotationManager = new AnnotationManager();
+  private watermarkManager: WatermarkManager = new WatermarkManager();
+  private layerManager: LayerManager = new LayerManager();
+  private patternManager: PatternManager = new PatternManager();
+  private graphicsStateManager: GraphicsStateManager = new GraphicsStateManager();
 
-  private fonts: Map<PDFBaseFont, number> = new Map()  // Map font name to font index (F1, F2, etc.)
-  private nextFontId: number = 1
-  private fontManager: FontManager = new FontManager()  // Handles custom TrueType/OpenType fonts
-  private customFonts: Map<string, number> = new Map()  // Map custom font name to font index
-  private currentCustomFont: string | null = null  // Currently active custom font
-  private bookmarks: BookmarkOptions[] = []  // Document bookmarks/outlines
-  private formFields: FormField[] = []  // Form fields
-  private formOptions: FormOptions = {}  // Form configuration
-  private signatureFields: SignatureFieldOptions[] = []  // Signature fields
-  private pdfAOptions: PDFAOptions | null = null  // PDF/A compliance options
-  private enableXMPMetadata: boolean = false  // Enable XMP metadata stream (independent of PDF/A)
-  private compressionOptions: CompressionOptions = {}  // Compression and optimization options
-  private attachments: FileAttachment[] = []  // Document-level file attachments
-  private namedDestinations: Map<string, NamedDestination> = new Map()  // Named destinations for goTo links
-  private currentX: number = 0
-  private currentY: number = 0
-  private currentFontSize: number = 12
-  private currentLineHeight: number = 0  // Track line height for moveDown/moveUp
-  private textContinued: boolean = false
+  private fonts: Map<PDFBaseFont, number> = new Map(); // Map font name to font index (F1, F2, etc.)
+  private nextFontId: number = 1;
+  private fontManager: FontManager = new FontManager(); // Handles custom TrueType/OpenType fonts
+  private customFonts: Map<string, number> = new Map(); // Map custom font name to font index
+  private currentCustomFont: string | null = null; // Currently active custom font
+  private bookmarks: BookmarkOptions[] = []; // Document bookmarks/outlines
+  private formFields: FormField[] = []; // Form fields
+  private formOptions: FormOptions = {}; // Form configuration
+  private signatureFields: SignatureFieldOptions[] = []; // Signature fields
+  private pdfAOptions: PDFAOptions | null = null; // PDF/A compliance options
+  private enableXMPMetadata: boolean = false; // Enable XMP metadata stream (independent of PDF/A)
+  private compressionOptions: CompressionOptions = {}; // Compression and optimization options
+  private attachments: FileAttachment[] = []; // Document-level file attachments
+  private namedDestinations: Map<string, NamedDestination> = new Map(); // Named destinations for goTo links
+  private currentX: number = 0;
+  private currentY: number = 0;
+  private currentFontSize: number = 12;
+  private currentLineHeight: number = 0; // Track line height for moveDown/moveUp
+  private textContinued: boolean = false;
 
   // Graphics state management for transformations
-  private graphicsStateStack: string[] = []  // Stack for save/restore
-  private currentPath: string[] = []  // Current path being built
-  private pathStarted: boolean = false  // Whether a path has been started
+  private graphicsStateStack: string[] = []; // Stack for save/restore
+  private currentPath: string[] = []; // Current path being built
+  private pathStarted: boolean = false; // Whether a path has been started
 
   // Form XObjects (Templates)
-  private formXObjects: Map<string, { id: number; xobject: FormXObjectOptions; name: string }> = new Map()  // Map Form XObject name to ID and data
-  private nextFormXObjectId: number = 1
+  private formXObjects: Map<string, { id: number; xobject: FormXObjectOptions; name: string }> =
+    new Map(); // Map Form XObject name to ID and data
+  private nextFormXObjectId: number = 1;
 
   constructor(
     width: number,
@@ -124,91 +232,97 @@ export class PDFWriter {
     pdfAOptions?: PDFAOptions,
     compressionOptions?: CompressionOptions
   ) {
-    this.defaultPageWidth = width
-    this.defaultPageHeight = height
-    this.encoding = fontOptions?.encoding || 'WinAnsiEncoding'
-    this.baseFont = fontOptions?.baseFont || 'Helvetica'
+    this.defaultPageWidth = width;
+    this.defaultPageHeight = height;
+    this.encoding = fontOptions?.encoding || 'WinAnsiEncoding';
+    this.baseFont = fontOptions?.baseFont || 'Helvetica';
 
     // Handle PDF/A compliance
     if (pdfAOptions) {
-      this.pdfAOptions = pdfAOptions
+      this.pdfAOptions = pdfAOptions;
 
       // Override PDF version based on conformance level
       if (pdfAOptions.conformanceLevel === 'PDF/A-1b') {
-        this.pdfVersion = '1.4'  // PDF/A-1 requires PDF 1.4
-      } else if (pdfAOptions.conformanceLevel === 'PDF/A-2b' || pdfAOptions.conformanceLevel === 'PDF/A-3b') {
-        this.pdfVersion = '1.7'  // PDF/A-2 and PDF/A-3 require PDF 1.7
+        this.pdfVersion = '1.4'; // PDF/A-1 requires PDF 1.4
+      } else if (
+        pdfAOptions.conformanceLevel === 'PDF/A-2b' ||
+        pdfAOptions.conformanceLevel === 'PDF/A-3b'
+      ) {
+        this.pdfVersion = '1.7'; // PDF/A-2 and PDF/A-3 require PDF 1.7
       } else {
-        this.pdfVersion = '1.4'  // Default fallback
+        this.pdfVersion = '1.4'; // Default fallback
       }
 
       // PDF/A does not allow encryption
       if (security && (security.userPassword || security.ownerPassword)) {
-        logger.warn('PDF/A compliance does not allow encryption. Security options will be ignored.', 'PDFWriter')
-        security = undefined  // Disable security
+        logger.warn(
+          'PDF/A compliance does not allow encryption. Security options will be ignored.',
+          'PDFWriter'
+        );
+        security = undefined; // Disable security
       }
     } else {
-      this.pdfVersion = pdfVersion
+      this.pdfVersion = pdfVersion;
     }
 
     // Generate document ID (random 16 bytes as hex)
-    this.documentId = crypto.randomBytes(16).toString('hex')
+    this.documentId = crypto.randomBytes(16).toString('hex');
 
     // Set document info with defaults from global config
-    const config = getConfig()
+    const config = getConfig();
     this.info = {
       Creator: config.defaultCreator,
       Producer: config.defaultProducer,
       CreationDate: new Date(),
       ModDate: new Date(),
-      ...info
-    }
+      ...info,
+    };
 
     // Initialize encryption if security options provided (and PDF/A is not enabled)
     if (security && (security.userPassword || security.ownerPassword)) {
-      this.encryption = new PDFEncryption(security, this.pdfVersion, this.documentId)
+      this.encryption = new PDFEncryption(security, this.pdfVersion, this.documentId);
     }
 
     // Store header/footer options
     if (headerFooter) {
-      this.headerFooterOptions = headerFooter
+      this.headerFooterOptions = headerFooter;
     }
 
     // Store bookmarks
     if (bookmarks) {
-      this.bookmarks = bookmarks
+      this.bookmarks = bookmarks;
     }
 
     // Store form options and fields
     if (formOptions) {
-      this.formOptions = formOptions
+      this.formOptions = formOptions;
       if (formOptions.fields) {
-        this.formFields = formOptions.fields
+        this.formFields = formOptions.fields;
       }
     }
 
     if (signatureFields) {
-      this.signatureFields = signatureFields
+      this.signatureFields = signatureFields;
     }
 
     // Store compression options
     if (compressionOptions) {
       this.compressionOptions = {
-        compressStreams: compressionOptions.compressStreams !== false,  // Default true
-        compressionLevel: compressionOptions.compressionLevel ?? 6,      // Default 6
-        ...compressionOptions
-      }
+        compressStreams: compressionOptions.compressStreams !== false, // Default true
+        compressionLevel: compressionOptions.compressionLevel ?? 6, // Default 6
+        ...compressionOptions,
+      };
     } else {
       // Default compression settings
       this.compressionOptions = {
         compressStreams: true,
-        compressionLevel: 6
-      }
+        compressionLevel: 6,
+      };
     }
 
     // Create first page automatically if enabled
     if (autoFirstPage) {
-      this.addPage(width, height)
+      this.addPage(width, height);
     }
   }
 
@@ -217,120 +331,120 @@ export class PDFWriter {
    * Also substitutes Unicode characters not supported in WinAnsiEncoding
    */
   private escapePDFString(text: string | undefined): string {
-    if (!text) return ''
+    if (!text) return '';
 
     // First, substitute unsupported Unicode characters
-    text = substituteUnicode(text)
+    text = substituteUnicode(text);
 
-    let result = ''
+    let result = '';
 
     for (let i = 0; i < text.length; i++) {
-      const char = text[i]
-      const code = text.charCodeAt(i)
+      const char = text[i];
+      const code = text.charCodeAt(i);
 
       // Escape special PDF characters
       if (char === '(') {
-        result += '\\('
+        result += '\\(';
       } else if (char === ')') {
-        result += '\\)'
-      } else if (char === '\\'){
-        result += '\\\\'
+        result += '\\)';
+      } else if (char === '\\') {
+        result += '\\\\';
       } else if (code < 32 || code > 126) {
         // Non-ASCII character - use octal notation
         // Convert to 3-digit octal
-        result += '\\' + code.toString(8).padStart(3, '0')
+        result += '\\' + code.toString(8).padStart(3, '0');
       } else {
         // Regular ASCII character
-        result += char
+        result += char;
       }
     }
 
-    return result
+    return result;
   }
 
   /**
    * Format date to PDF date format: D:YYYYMMDDHHmmSS
    */
   private formatPDFDate(date: Date): string {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
 
-    return `D:${year}${month}${day}${hours}${minutes}${seconds}`
+    return `D:${year}${month}${day}${hours}${minutes}${seconds}`;
   }
 
   /**
    * Generate Info dictionary data
    */
   private generateInfoDictionary(): string {
-    const entries: string[] = []
+    const entries: string[] = [];
 
     if (this.info.Title) {
-      entries.push(`  /Title (${this.escapePDFString(this.info.Title)})`)
+      entries.push(`  /Title (${this.escapePDFString(this.info.Title)})`);
     }
     if (this.info.Author) {
-      entries.push(`  /Author (${this.escapePDFString(this.info.Author)})`)
+      entries.push(`  /Author (${this.escapePDFString(this.info.Author)})`);
     }
     if (this.info.Subject) {
-      entries.push(`  /Subject (${this.escapePDFString(this.info.Subject)})`)
+      entries.push(`  /Subject (${this.escapePDFString(this.info.Subject)})`);
     }
     if (this.info.Keywords) {
-      entries.push(`  /Keywords (${this.escapePDFString(this.info.Keywords)})`)
+      entries.push(`  /Keywords (${this.escapePDFString(this.info.Keywords)})`);
     }
     if (this.info.Creator) {
-      entries.push(`  /Creator (${this.escapePDFString(this.info.Creator)})`)
+      entries.push(`  /Creator (${this.escapePDFString(this.info.Creator)})`);
     }
     if (this.info.Producer) {
-      entries.push(`  /Producer (${this.escapePDFString(this.info.Producer)})`)
+      entries.push(`  /Producer (${this.escapePDFString(this.info.Producer)})`);
     }
     if (this.info.CreationDate) {
-      entries.push(`  /CreationDate (${this.formatPDFDate(this.info.CreationDate)})`)
+      entries.push(`  /CreationDate (${this.formatPDFDate(this.info.CreationDate)})`);
     }
     if (this.info.ModDate) {
-      entries.push(`  /ModDate (${this.formatPDFDate(this.info.ModDate)})`)
+      entries.push(`  /ModDate (${this.formatPDFDate(this.info.ModDate)})`);
     }
 
-    return `<<\n${entries.join('\n')}\n>>`
+    return `<<\n${entries.join('\n')}\n>>`;
   }
 
   /**
    * Set page numbering options
    */
   setPageNumberOptions(options: PageNumberOptions | null): void {
-    this.pageNumberOptions = options
+    this.pageNumberOptions = options;
   }
 
   /**
    * Set header and footer options
    */
   setHeaderFooterOptions(options: HeaderFooterOptions | null): void {
-    this.headerFooterOptions = options
+    this.headerFooterOptions = options;
   }
 
   /**
    * Set bookmarks/outlines
    */
   setBookmarks(bookmarks: BookmarkOptions[]): void {
-    this.bookmarks = bookmarks
+    this.bookmarks = bookmarks;
   }
 
   /**
    * Add a bookmark
    */
   addBookmark(bookmark: BookmarkOptions): void {
-    this.bookmarks.push(bookmark)
+    this.bookmarks.push(bookmark);
   }
 
   /**
    * Set form configuration
    */
   setFormOptions(options: FormOptions): void {
-    this.formOptions = options
+    this.formOptions = options;
     if (options.fields) {
-      this.formFields = options.fields
+      this.formFields = options.fields;
     }
   }
 
@@ -338,28 +452,28 @@ export class PDFWriter {
    * Add a form field
    */
   addFormField(field: FormField): void {
-    this.formFields.push(field)
+    this.formFields.push(field);
   }
 
   /**
    * Add a signature field
    */
   addSignatureField(field: SignatureFieldOptions): void {
-    this.signatureFields.push(field)
+    this.signatureFields.push(field);
   }
 
   /**
    * Add an annotation
    */
   addAnnotation(annotation: Annotation): void {
-    this.annotationManager.addAnnotation(annotation)
+    this.annotationManager.addAnnotation(annotation);
   }
 
   /**
    * Add a watermark
    */
   addWatermark(watermark: Watermark): void {
-    this.watermarkManager.addWatermark(watermark)
+    this.watermarkManager.addWatermark(watermark);
   }
 
   /**
@@ -368,16 +482,16 @@ export class PDFWriter {
   addLink(link: Link): void {
     // If page is not specified, set it to current page index
     if (link.page === undefined) {
-      link.page = this.currentPageIndex
+      link.page = this.currentPageIndex;
     }
-    this.annotationManager.addLink(link)
+    this.annotationManager.addLink(link);
   }
 
   /**
    * Add a document-level file attachment
    */
   addAttachment(attachment: FileAttachment): void {
-    this.attachments.push(attachment)
+    this.attachments.push(attachment);
   }
 
   /**
@@ -386,9 +500,9 @@ export class PDFWriter {
   addFileAttachmentAnnotation(annotation: FileAttachmentAnnotation): void {
     // If page is not specified, set it to current page index
     if (annotation.page === undefined) {
-      annotation.page = this.currentPageIndex
+      annotation.page = this.currentPageIndex;
     }
-    this.annotationManager.addAttachmentAnnotation(annotation)
+    this.annotationManager.addAttachmentAnnotation(annotation);
   }
 
   /**
@@ -396,11 +510,11 @@ export class PDFWriter {
    */
   async registerCustomFont(customFont: CustomFont): Promise<void> {
     // Load font using FontManager
-    const fontInfo = await this.fontManager.loadFont(customFont)
+    const fontInfo = await this.fontManager.loadFont(customFont);
 
     // Register font with next available ID
     if (!this.customFonts.has(customFont.name)) {
-      this.customFonts.set(customFont.name, this.nextFontId++)
+      this.customFonts.set(customFont.name, this.nextFontId++);
     }
   }
 
@@ -408,19 +522,22 @@ export class PDFWriter {
    * Set active custom font
    */
   useCustomFont(fontName: string): void {
-    const fontInfo = this.fontManager.getFont(fontName)
+    const fontInfo = this.fontManager.getFont(fontName);
     if (!fontInfo) {
-      throw new Error(`Custom font not registered: ${fontName}. Call registerCustomFont() first.`)
+      throw new FontError(
+        `Custom font not registered: ${fontName}. Call registerCustomFont() first.`,
+        fontName
+      );
     }
-    this.currentCustomFont = fontName
+    this.currentCustomFont = fontName;
   }
 
   /**
    * Switch back to base font
    */
   useBaseFont(baseFont: PDFBaseFont): void {
-    this.currentCustomFont = null
-    this.baseFont = baseFont
+    this.currentCustomFont = null;
+    this.baseFont = baseFont;
   }
 
   /**
@@ -430,7 +547,7 @@ export class PDFWriter {
    */
   rotatePage(pageIndex: number, rotation: PageRotation): void {
     if (pageIndex >= 0 && pageIndex < this.pages.length) {
-      this.pages[pageIndex].rotation = rotation
+      this.pages[pageIndex].rotation = rotation;
     }
   }
 
@@ -439,7 +556,7 @@ export class PDFWriter {
    * @param rotation - Rotation angle in degrees (0, 90, 180, 270)
    */
   rotateCurrentPage(rotation: PageRotation): void {
-    this.pages[this.currentPageIndex].rotation = rotation
+    this.pages[this.currentPageIndex].rotation = rotation;
   }
 
   /**
@@ -449,10 +566,10 @@ export class PDFWriter {
    */
   duplicatePage(pageIndex: number): number {
     if (pageIndex < 0 || pageIndex >= this.pages.length) {
-      throw new Error(`Invalid page index: ${pageIndex}`)
+      throw new PageError(`Invalid page index: ${pageIndex}`, pageIndex, this.pages.length);
     }
 
-    const originalPage = this.pages[pageIndex]
+    const originalPage = this.pages[pageIndex];
 
     // Create a deep copy of the page
     const duplicatedPage: PageData = {
@@ -461,13 +578,13 @@ export class PDFWriter {
       height: originalPage.height,
       annotations: [...originalPage.annotations],
       linkAnnots: originalPage.linkAnnots ? [...originalPage.linkAnnots] : undefined,
-      rotation: originalPage.rotation
-    }
+      rotation: originalPage.rotation,
+    };
 
     // Add the duplicated page after the original
-    this.pages.splice(pageIndex + 1, 0, duplicatedPage)
+    this.pages.splice(pageIndex + 1, 0, duplicatedPage);
 
-    return pageIndex + 1
+    return pageIndex + 1;
   }
 
   /**
@@ -476,27 +593,31 @@ export class PDFWriter {
    */
   reorderPages(newOrder: number[]): void {
     if (newOrder.length !== this.pages.length) {
-      throw new Error(`New order must contain exactly ${this.pages.length} page indices`)
+      throw new ValidationError(
+        `New order must contain exactly ${this.pages.length} page indices`,
+        'newOrder',
+        newOrder.length
+      );
     }
 
     // Validate that all indices are valid and unique
-    const indices = new Set(newOrder)
+    const indices = new Set(newOrder);
     if (indices.size !== newOrder.length) {
-      throw new Error('Duplicate page indices in new order')
+      throw new ValidationError('Duplicate page indices in new order', 'newOrder', newOrder);
     }
 
     for (const index of newOrder) {
       if (index < 0 || index >= this.pages.length) {
-        throw new Error(`Invalid page index: ${index}`)
+        throw new PageError(`Invalid page index: ${index}`, index, this.pages.length);
       }
     }
 
     // Create new pages array in the specified order
-    const reorderedPages = newOrder.map(index => this.pages[index])
-    this.pages = reorderedPages
+    const reorderedPages = newOrder.map((index) => this.pages[index]);
+    this.pages = reorderedPages;
 
     // Reset current page index to 0 after reordering
-    this.currentPageIndex = 0
+    this.currentPageIndex = 0;
   }
 
   /**
@@ -505,19 +626,23 @@ export class PDFWriter {
    */
   deletePage(pageIndex: number): void {
     if (pageIndex < 0 || pageIndex >= this.pages.length) {
-      throw new Error(`Invalid page index: ${pageIndex}`)
+      throw new PageError(`Invalid page index: ${pageIndex}`, pageIndex, this.pages.length);
     }
 
     if (this.pages.length === 1) {
-      throw new Error('Cannot delete the only page in the document')
+      throw new PageError(
+        'Cannot delete the only page in the document',
+        pageIndex,
+        this.pages.length
+      );
     }
 
     // Remove the page
-    this.pages.splice(pageIndex, 1)
+    this.pages.splice(pageIndex, 1);
 
     // Adjust current page index if necessary
     if (this.currentPageIndex >= this.pages.length) {
-      this.currentPageIndex = this.pages.length - 1
+      this.currentPageIndex = this.pages.length - 1;
     }
   }
 
@@ -526,7 +651,7 @@ export class PDFWriter {
    * This allows rich metadata including custom properties
    */
   enableXMP(): void {
-    this.enableXMPMetadata = true
+    this.enableXMPMetadata = true;
   }
 
   /**
@@ -536,8 +661,8 @@ export class PDFWriter {
   setExtendedMetadata(metadata: ExtendedMetadata): void {
     this.info.extendedMetadata = {
       ...this.info.extendedMetadata,
-      ...metadata
-    }
+      ...metadata,
+    };
   }
 
   /**
@@ -548,8 +673,8 @@ export class PDFWriter {
     this.info = {
       ...this.info,
       ...info,
-      ModDate: new Date()  // Update modification date
-    }
+      ModDate: new Date(), // Update modification date
+    };
   }
 
   /**
@@ -560,9 +685,9 @@ export class PDFWriter {
       content: [],
       width: width || this.defaultPageWidth,
       height: height || this.defaultPageHeight,
-      annotations: []
-    })
-    this.currentPageIndex = this.pages.length - 1
+      annotations: [],
+    });
+    this.currentPageIndex = this.pages.length - 1;
   }
 
   /**
@@ -570,9 +695,13 @@ export class PDFWriter {
    */
   switchToPage(pageIndex: number): void {
     if (pageIndex >= 0 && pageIndex < this.pages.length) {
-      this.currentPageIndex = pageIndex
+      this.currentPageIndex = pageIndex;
     } else {
-      throw new Error(`Page index ${pageIndex} out of bounds. Total pages: ${this.pages.length}`)
+      throw new PageError(
+        `Page index ${pageIndex} out of bounds. Total pages: ${this.pages.length}`,
+        pageIndex,
+        this.pages.length
+      );
     }
   }
 
@@ -580,42 +709,46 @@ export class PDFWriter {
    * Get current page number (1-indexed)
    */
   getCurrentPageNumber(): number {
-    return this.currentPageIndex + 1
+    return this.currentPageIndex + 1;
   }
 
   /**
    * Get total number of pages
    */
   getPageCount(): number {
-    return this.pages.length
+    return this.pages.length;
   }
 
   /**
    * Get current page width
    */
   getCurrentPageWidth(): number {
-    return this.pages[this.currentPageIndex]?.width || this.defaultPageWidth
+    return this.pages[this.currentPageIndex]?.width || this.defaultPageWidth;
   }
 
   /**
    * Get current page height
    */
   getCurrentPageHeight(): number {
-    return this.pages[this.currentPageIndex]?.height || this.defaultPageHeight
+    return this.pages[this.currentPageIndex]?.height || this.defaultPageHeight;
   }
 
   /**
    * Add content to the current page
    */
   addContent(content: string): void {
-    this.pages[this.currentPageIndex].content.push(content)
+    this.pages[this.currentPageIndex].content.push(content);
   }
 
   /**
    * Draw a rectangle
    */
   rect(x: number, y: number, width: number, height: number): void {
-    this.addContent(`${x} ${y} ${width} ${height} re`)
+    validateFiniteNumber(x, 'x');
+    validateFiniteNumber(y, 'y');
+    validateFiniteNumber(width, 'width');
+    validateFiniteNumber(height, 'height');
+    this.addContent(`${x} ${y} ${width} ${height} re`);
   }
 
   /**
@@ -639,110 +772,130 @@ export class PDFWriter {
    *    .fillAndStroke('#3498db', '#2c3e50')
    * ```
    */
-  roundedRect(x: number, y: number, width: number, height: number, cornerRadius: number | [number, number]): void {
+  roundedRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    cornerRadius: number | [number, number]
+  ): void {
     // Parse corner radius
-    let rx: number, ry: number
+    let rx: number, ry: number;
     if (typeof cornerRadius === 'number') {
-      rx = ry = cornerRadius
+      rx = ry = cornerRadius;
     } else {
-      [rx, ry] = cornerRadius
+      [rx, ry] = cornerRadius;
     }
 
     // Clamp corner radius to not exceed half the dimensions
-    rx = Math.min(rx, width / 2)
-    ry = Math.min(ry, height / 2)
+    rx = Math.min(rx, width / 2);
+    ry = Math.min(ry, height / 2);
 
     // Calculate the magic number for bezier curves that approximate circular arcs
     // This is approximately 0.5522847498 for a good circle approximation
-    const k = 0.5522847498
+    const k = 0.5522847498;
 
     // Control point offsets for bezier curves
-    const rxk = rx * k
-    const ryk = ry * k
+    const rxk = rx * k;
+    const ryk = ry * k;
 
     // Build the path for a rounded rectangle
     // Start from bottom-left, move clockwise
 
     // Move to bottom-left corner (after the curve)
-    this.moveTo(x + rx, y)
+    this.moveTo(x + rx, y);
 
     // Bottom edge
-    this.lineTo(x + width - rx, y)
+    this.lineTo(x + width - rx, y);
 
     // Bottom-right corner
     this.bezierCurveTo(
-      x + width - rx + rxk, y,           // Control point 1
-      x + width, y + ry - ryk,           // Control point 2
-      x + width, y + ry                   // End point
-    )
+      x + width - rx + rxk,
+      y, // Control point 1
+      x + width,
+      y + ry - ryk, // Control point 2
+      x + width,
+      y + ry // End point
+    );
 
     // Right edge
-    this.lineTo(x + width, y + height - ry)
+    this.lineTo(x + width, y + height - ry);
 
     // Top-right corner
     this.bezierCurveTo(
-      x + width, y + height - ry + ryk,   // Control point 1
-      x + width - rx + rxk, y + height,   // Control point 2
-      x + width - rx, y + height          // End point
-    )
+      x + width,
+      y + height - ry + ryk, // Control point 1
+      x + width - rx + rxk,
+      y + height, // Control point 2
+      x + width - rx,
+      y + height // End point
+    );
 
     // Top edge
-    this.lineTo(x + rx, y + height)
+    this.lineTo(x + rx, y + height);
 
     // Top-left corner
     this.bezierCurveTo(
-      x + rx - rxk, y + height,           // Control point 1
-      x, y + height - ry + ryk,           // Control point 2
-      x, y + height - ry                   // End point
-    )
+      x + rx - rxk,
+      y + height, // Control point 1
+      x,
+      y + height - ry + ryk, // Control point 2
+      x,
+      y + height - ry // End point
+    );
 
     // Left edge
-    this.lineTo(x, y + ry)
+    this.lineTo(x, y + ry);
 
     // Bottom-left corner
     this.bezierCurveTo(
-      x, y + ry - ryk,                    // Control point 1
-      x + rx - rxk, y,                    // Control point 2
-      x + rx, y                            // End point (back to start)
-    )
+      x,
+      y + ry - ryk, // Control point 1
+      x + rx - rxk,
+      y, // Control point 2
+      x + rx,
+      y // End point (back to start)
+    );
 
     // Close the path
-    this.closePath()
+    this.closePath();
   }
 
   /**
    * Set fill color (RGB, 0-1 range)
    */
   setFillColor(r: number, g: number, b: number): void {
-    this.addContent(`${r} ${g} ${b} rg`)
+    validateRGBColor(r, g, b);
+    this.addContent(`${r} ${g} ${b} rg`);
   }
 
   /**
    * Set stroke color (RGB, 0-1 range)
    */
   setStrokeColor(r: number, g: number, b: number): void {
-    this.addContent(`${r} ${g} ${b} RG`)
+    validateRGBColor(r, g, b);
+    this.addContent(`${r} ${g} ${b} RG`);
   }
 
   /**
    * Fill the current path
    */
   fill(): void {
-    this.addContent('f')
+    this.addContent('f');
   }
 
   /**
    * Stroke the current path
    */
   stroke(): void {
-    this.addContent('S')
+    this.addContent('S');
   }
 
   /**
    * Fill and stroke the current path
    */
   fillAndStroke(): void {
-    this.addContent('B')
+    this.addContent('B');
   }
 
   /**
@@ -762,7 +915,7 @@ export class PDFWriter {
    * ```
    */
   clip(): void {
-    this.addContent('W n')
+    this.addContent('W n');
   }
 
   /**
@@ -789,7 +942,7 @@ export class PDFWriter {
    * ```
    */
   clipEvenOdd(): void {
-    this.addContent('W* n')
+    this.addContent('W* n');
   }
 
   /**
@@ -800,8 +953,8 @@ export class PDFWriter {
    * @param height - Height
    */
   clipRect(x: number, y: number, width: number, height: number): void {
-    this.rect(x, y, width, height)
-    this.clip()
+    this.rect(x, y, width, height);
+    this.clip();
   }
 
   /**
@@ -812,16 +965,16 @@ export class PDFWriter {
    */
   clipCircle(x: number, y: number, radius: number): void {
     // Draw circle using four Bezier curves
-    const k = 0.5522848
-    const ox = radius * k
-    const oy = radius * k
+    const k = 0.5522848;
+    const ox = radius * k;
+    const oy = radius * k;
 
-    this.moveTo(x + radius, y)
-    this.bezierCurveTo(x + radius, y + oy, x + ox, y + radius, x, y + radius)
-    this.bezierCurveTo(x - ox, y + radius, x - radius, y + oy, x - radius, y)
-    this.bezierCurveTo(x - radius, y - oy, x - ox, y - radius, x, y - radius)
-    this.bezierCurveTo(x + ox, y - radius, x + radius, y - oy, x + radius, y)
-    this.clip()
+    this.moveTo(x + radius, y);
+    this.bezierCurveTo(x + radius, y + oy, x + ox, y + radius, x, y + radius);
+    this.bezierCurveTo(x - ox, y + radius, x - radius, y + oy, x - radius, y);
+    this.bezierCurveTo(x - radius, y - oy, x - ox, y - radius, x, y - radius);
+    this.bezierCurveTo(x + ox, y - radius, x + radius, y - oy, x + radius, y);
+    this.clip();
   }
 
   /**
@@ -829,8 +982,8 @@ export class PDFWriter {
    * @param pathString - SVG path string (e.g., "M 100,100 L 200,200 Z")
    */
   clipPath(pathString: string): void {
-    this.path(pathString)
-    this.clip()
+    this.path(pathString);
+    this.clip();
   }
 
   /**
@@ -839,15 +992,15 @@ export class PDFWriter {
    * @param phase - offset into the pattern (default 0)
    */
   dash(pattern: number[], phase: number = 0): void {
-    const patternStr = pattern.join(' ')
-    this.addContent(`[${patternStr}] ${phase} d`)
+    const patternStr = pattern.join(' ');
+    this.addContent(`[${patternStr}] ${phase} d`);
   }
 
   /**
    * Remove line dash pattern (solid lines)
    */
   undash(): void {
-    this.addContent('[] 0 d')
+    this.addContent('[] 0 d');
   }
 
   /**
@@ -857,18 +1010,31 @@ export class PDFWriter {
   blendMode(mode: string): void {
     // Valid PDF blend modes
     const validModes = [
-      'Normal', 'Multiply', 'Screen', 'Overlay', 'Darken', 'Lighten',
-      'ColorDodge', 'ColorBurn', 'HardLight', 'SoftLight',
-      'Difference', 'Exclusion', 'Hue', 'Saturation', 'Color', 'Luminosity'
-    ]
+      'Normal',
+      'Multiply',
+      'Screen',
+      'Overlay',
+      'Darken',
+      'Lighten',
+      'ColorDodge',
+      'ColorBurn',
+      'HardLight',
+      'SoftLight',
+      'Difference',
+      'Exclusion',
+      'Hue',
+      'Saturation',
+      'Color',
+      'Luminosity',
+    ];
 
     if (!validModes.includes(mode)) {
-      logger.warn(`Invalid blend mode: ${mode}. Using Normal.`, 'PDFWriter')
-      mode = 'Normal'
+      logger.warn(`Invalid blend mode: ${mode}. Using Normal.`, 'PDFWriter');
+      mode = 'Normal';
     }
 
-    this.graphicsStateManager.setBlendMode(mode)
-    this.applyExtGState()
+    this.graphicsStateManager.setBlendMode(mode);
+    this.applyExtGState();
   }
 
   /**
@@ -877,12 +1043,12 @@ export class PDFWriter {
    */
   opacity(opacity: number): void {
     if (opacity < 0 || opacity > 1) {
-      logger.warn(`Invalid opacity: ${opacity}. Must be between 0 and 1. Using 1.`, 'PDFWriter')
-      opacity = 1
+      logger.warn(`Invalid opacity: ${opacity}. Must be between 0 and 1. Using 1.`, 'PDFWriter');
+      opacity = 1;
     }
 
-    this.graphicsStateManager.setOpacity(opacity)
-    this.applyExtGState()
+    this.graphicsStateManager.setOpacity(opacity);
+    this.applyExtGState();
   }
 
   /**
@@ -891,25 +1057,26 @@ export class PDFWriter {
    */
   private applyExtGState(): void {
     // Create a hash key for current ExtGState
-    const hash = `BM:${this.graphicsStateManager.getBlendMode()}|OP:${this.graphicsStateManager.getOpacity().toFixed(3)}`
+    const hash = `BM:${this.graphicsStateManager.getBlendMode()}|OP:${this.graphicsStateManager.getOpacity().toFixed(3)}`;
 
     // Check if we already have this ExtGState
-    let gsId = this.graphicsStateManager.getExtGState(hash)
+    let gsId = this.graphicsStateManager.getExtGState(hash);
 
     if (!gsId) {
       // Create new ExtGState
-      gsId = this.graphicsStateManager.registerExtGState(hash)
+      gsId = this.graphicsStateManager.registerExtGState(hash);
     }
 
     // Apply ExtGState in content stream
-    this.addContent(`/GS${gsId} gs`)
+    this.addContent(`/GS${gsId} gs`);
   }
 
   /**
    * Set line width
    */
   setLineWidth(width: number): void {
-    this.addContent(`${width} w`)
+    validateLineWidth(width);
+    this.addContent(`${width} w`);
   }
 
   /**
@@ -924,7 +1091,7 @@ export class PDFWriter {
    * ```
    */
   setLineCap(cap: 0 | 1 | 2): void {
-    this.addContent(`${cap} J`)
+    this.addContent(`${cap} J`);
   }
 
   /**
@@ -940,7 +1107,7 @@ export class PDFWriter {
    * ```
    */
   setLineJoin(join: 0 | 1 | 2): void {
-    this.addContent(`${join} j`)
+    this.addContent(`${join} j`);
   }
 
   /**
@@ -961,9 +1128,9 @@ export class PDFWriter {
    */
   setDashPattern(pattern: number[], phase: number = 0): void {
     if (pattern.length === 0) {
-      this.addContent('[] 0 d')
+      this.addContent('[] 0 d');
     } else {
-      this.addContent(`[${pattern.join(' ')}] ${phase} d`)
+      this.addContent(`[${pattern.join(' ')}] ${phase} d`);
     }
   }
 
@@ -977,7 +1144,7 @@ export class PDFWriter {
    * ```
    */
   setMiterLimit(limit: number): void {
-    this.addContent(`${limit} M`)
+    this.addContent(`${limit} M`);
   }
 
   /**
@@ -985,14 +1152,14 @@ export class PDFWriter {
    * Use with restoreGraphicsState() to isolate transformations and styling
    */
   saveGraphicsState(): void {
-    this.addContent('q')
+    this.addContent('q');
   }
 
   /**
    * Restore the previous graphics state (pop from stack)
    */
   restoreGraphicsState(): void {
-    this.addContent('Q')
+    this.addContent('Q');
   }
 
   /**
@@ -1003,10 +1170,10 @@ export class PDFWriter {
   private roundPDFNumber(num: number): number {
     // Round numbers smaller than 1e-10 to zero
     if (Math.abs(num) < 1e-10) {
-      return 0
+      return 0;
     }
     // Round to 6 decimal places to avoid excessive precision
-    return Math.round(num * 1000000) / 1000000
+    return Math.round(num * 1000000) / 1000000;
   }
 
   /**
@@ -1020,19 +1187,19 @@ export class PDFWriter {
    */
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void {
     // Round numbers to avoid floating point errors
-    const ra = this.roundPDFNumber(a)
-    const rb = this.roundPDFNumber(b)
-    const rc = this.roundPDFNumber(c)
-    const rd = this.roundPDFNumber(d)
-    const re = this.roundPDFNumber(e)
-    const rf = this.roundPDFNumber(f)
+    const ra = this.roundPDFNumber(a);
+    const rb = this.roundPDFNumber(b);
+    const rc = this.roundPDFNumber(c);
+    const rd = this.roundPDFNumber(d);
+    const re = this.roundPDFNumber(e);
+    const rf = this.roundPDFNumber(f);
 
     // Only output transformation if it's not an identity matrix
     // Identity matrix is: [1, 0, 0, 1, 0, 0]
-    const isIdentity = (ra === 1 && rb === 0 && rc === 0 && rd === 1 && re === 0 && rf === 0)
+    const isIdentity = ra === 1 && rb === 0 && rc === 0 && rd === 1 && re === 0 && rf === 0;
 
     if (!isIdentity) {
-      this.addContent(`${ra} ${rb} ${rc} ${rd} ${re} ${rf} cm`)
+      this.addContent(`${ra} ${rb} ${rc} ${rd} ${re} ${rf} cm`);
     }
   }
 
@@ -1041,10 +1208,10 @@ export class PDFWriter {
    * @param angle - rotation angle in degrees (clockwise)
    */
   rotate(angle: number): void {
-    const rad = (angle * Math.PI) / 180
-    const cos = Math.cos(rad)
-    const sin = Math.sin(rad)
-    this.transform(cos, sin, -sin, cos, 0, 0)
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    this.transform(cos, sin, -sin, cos, 0, 0);
   }
 
   /**
@@ -1053,8 +1220,8 @@ export class PDFWriter {
    * @param sy - vertical scale factor (defaults to sx if not provided)
    */
   scale(sx: number, sy?: number): void {
-    const scaleY = sy !== undefined ? sy : sx
-    this.transform(sx, 0, 0, scaleY, 0, 0)
+    const scaleY = sy !== undefined ? sy : sx;
+    this.transform(sx, 0, 0, scaleY, 0, 0);
   }
 
   /**
@@ -1063,21 +1230,21 @@ export class PDFWriter {
    * @param y - vertical translation
    */
   translate(x: number, y: number): void {
-    this.transform(1, 0, 0, 1, x, y)
+    this.transform(1, 0, 0, 1, x, y);
   }
 
   /**
    * Move to position
    */
   moveTo(x: number, y: number): void {
-    this.addContent(`${x} ${y} m`)
+    this.addContent(`${x} ${y} m`);
   }
 
   /**
    * Line to position
    */
   lineTo(x: number, y: number): void {
-    this.addContent(`${x} ${y} l`)
+    this.addContent(`${x} ${y} l`);
   }
 
   /**
@@ -1089,15 +1256,22 @@ export class PDFWriter {
    * @param x - end point x
    * @param y - end point y
    */
-  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void {
-    this.addContent(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`)
+  bezierCurveTo(
+    cp1x: number,
+    cp1y: number,
+    cp2x: number,
+    cp2y: number,
+    x: number,
+    y: number
+  ): void {
+    this.addContent(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`);
   }
 
   /**
    * Close the current path (connect back to start point)
    */
   closePath(): void {
-    this.addContent('h')
+    this.addContent('h');
   }
 
   /**
@@ -1105,15 +1279,16 @@ export class PDFWriter {
    * @param pathString - SVG path string (e.g., "M 100,100 L 200,200 C 250,150 300,150 350,200 Z")
    */
   path(pathString: string): void {
-    const converter = new SVGPathConverter()
+    const converter = new SVGPathConverter();
 
     converter.convert(pathString, {
       moveTo: (x, y) => this.moveTo(x, y),
       lineTo: (x, y) => this.lineTo(x, y),
-      bezierCurveTo: (cp1x, cp1y, cp2x, cp2y, x, y) => this.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y),
+      bezierCurveTo: (cp1x, cp1y, cp2x, cp2y, x, y) =>
+        this.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y),
       quadraticCurveTo: (cpx, cpy, x, y) => this.quadraticCurveTo(cpx, cpy, x, y),
-      closePath: () => this.closePath()
-    })
+      closePath: () => this.closePath(),
+    });
   }
 
   /**
@@ -1134,9 +1309,9 @@ export class PDFWriter {
    * ```
    */
   fillWithGradient(gradient: Gradient): void {
-    const patternName = this.registerGradient(gradient)
-    this.addContent('/Pattern cs')
-    this.addContent(`/${patternName} scn`)
+    const patternName = this.registerGradient(gradient);
+    this.addContent('/Pattern cs');
+    this.addContent(`/${patternName} scn`);
   }
 
   /**
@@ -1148,31 +1323,31 @@ export class PDFWriter {
    * @param gradient - Linear or radial gradient
    */
   rectWithGradient(x: number, y: number, width: number, height: number, gradient: Gradient): void {
-    this.rect(x, y, width, height)
-    this.fillWithGradient(gradient)
-    this.fill()
+    this.rect(x, y, width, height);
+    this.fillWithGradient(gradient);
+    this.fill();
   }
 
   /**
    * Create a hash for a pattern (for caching)
    */
   private hashPattern(pattern: TilingPatternOptions): string {
-    return `${pattern.width}_${pattern.height}_${pattern.xStep || pattern.width}_${pattern.yStep || pattern.height}_${pattern.draw.toString()}`
+    return `${pattern.width}_${pattern.height}_${pattern.xStep || pattern.width}_${pattern.yStep || pattern.height}_${pattern.draw.toString()}`;
   }
 
   /**
    * Register a pattern and get its pattern name
    */
   private registerPattern(pattern: TilingPatternOptions): string {
-    const hash = this.hashPattern(pattern)
+    const hash = this.hashPattern(pattern);
 
     if (this.patternManager.hasPattern(hash)) {
-      const id = this.patternManager.getPattern(hash)!.id
-      return `Pat${id}`
+      const id = this.patternManager.getPattern(hash)!.id;
+      return `Pat${id}`;
     }
 
-    const id = this.patternManager.registerPattern(hash, pattern)
-    return `Pat${id}`
+    const id = this.patternManager.registerPattern(hash, pattern);
+    return `Pat${id}`;
   }
 
   /**
@@ -1194,9 +1369,9 @@ export class PDFWriter {
    * ```
    */
   fillWithPattern(pattern: TilingPatternOptions): void {
-    const patternName = this.registerPattern(pattern)
-    this.addContent('/Pattern cs')
-    this.addContent(`/${patternName} scn`)
+    const patternName = this.registerPattern(pattern);
+    this.addContent('/Pattern cs');
+    this.addContent(`/${patternName} scn`);
   }
 
   /**
@@ -1207,10 +1382,16 @@ export class PDFWriter {
    * @param height - Height
    * @param pattern - Tiling pattern
    */
-  rectWithPattern(x: number, y: number, width: number, height: number, pattern: TilingPatternOptions): void {
-    this.rect(x, y, width, height)
-    this.fillWithPattern(pattern)
-    this.fill()
+  rectWithPattern(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    pattern: TilingPatternOptions
+  ): void {
+    this.rect(x, y, width, height);
+    this.fillWithPattern(pattern);
+    this.fill();
   }
 
   /**
@@ -1240,16 +1421,16 @@ export class PDFWriter {
    */
   createFormXObject(options: FormXObjectOptions): string {
     // Generate name if not provided
-    const name = options.name || `XObj${this.nextFormXObjectId}`
+    const name = options.name || `XObj${this.nextFormXObjectId}`;
 
     // Check if already exists
     if (this.formXObjects.has(name)) {
-      return name
+      return name;
     }
 
-    const id = this.nextFormXObjectId++
-    this.formXObjects.set(name, { id, xobject: options, name })
-    return name
+    const id = this.nextFormXObjectId++;
+    this.formXObjects.set(name, { id, xobject: options, name });
+    return name;
   }
 
   /**
@@ -1272,55 +1453,59 @@ export class PDFWriter {
    * ```
    */
   useFormXObject(name: string, placement?: FormXObjectPlacementOptions): void {
-    const xobject = this.formXObjects.get(name)
+    const xobject = this.formXObjects.get(name);
     if (!xobject) {
-      throw new Error(`Form XObject '${name}' not found. Create it first with createFormXObject()`)
+      throw new ValidationError(
+        `Form XObject '${name}' not found. Create it first with createFormXObject()`,
+        'name',
+        name
+      );
     }
 
-    const opts = placement || {}
-    const x = opts.x || 0
-    const y = opts.y || 0
+    const opts = placement || {};
+    const x = opts.x || 0;
+    const y = opts.y || 0;
 
     // Calculate transformation matrix
-    let scaleX = opts.scaleX || opts.scale || 1
-    let scaleY = opts.scaleY || opts.scale || 1
+    let scaleX = opts.scaleX || opts.scale || 1;
+    let scaleY = opts.scaleY || opts.scale || 1;
 
     // If width/height specified, calculate scale factors
     if (opts.width) {
-      scaleX = opts.width / xobject.xobject.width
+      scaleX = opts.width / xobject.xobject.width;
     }
     if (opts.height) {
-      scaleY = opts.height / xobject.xobject.height
+      scaleY = opts.height / xobject.xobject.height;
     }
 
-    const rotation = opts.rotate || 0
-    const opacity = opts.opacity || 1
+    const rotation = opts.rotate || 0;
+    const opacity = opts.opacity || 1;
 
     // Save graphics state
-    this.saveGraphicsState()
+    this.saveGraphicsState();
 
     // Apply opacity if needed
     if (opacity < 1) {
-      this.opacity(opacity)
+      this.opacity(opacity);
     }
 
     // Apply transformations
     // Order: translate -> rotate -> scale
-    this.translate(x, y)
+    this.translate(x, y);
 
     if (rotation !== 0) {
-      this.rotate(rotation)
+      this.rotate(rotation);
     }
 
     if (scaleX !== 1 || scaleY !== 1) {
-      this.scale(scaleX, scaleY)
+      this.scale(scaleX, scaleY);
     }
 
     // Place the Form XObject using the Do operator
-    this.addContent(`/${name} Do`)
+    this.addContent(`/${name} Do`);
 
     // Restore graphics state
-    this.restoreGraphicsState()
+    this.restoreGraphicsState();
   }
 
   /**
@@ -1338,7 +1523,7 @@ export class PDFWriter {
    * ```
    */
   setTextRenderingMode(mode: TextRenderingMode): void {
-    this.addContent(`${mode} Tr`)
+    this.addContent(`${mode} Tr`);
   }
 
   /**
@@ -1358,41 +1543,45 @@ export class PDFWriter {
    * ```
    */
   textOutline(options: TextOutlineOptions): void {
-    const fontSize = options.fontSize || 12
-    const font = options.font || 'Helvetica'
-    const fontId = this.getFontId(font as PDFBaseFont)
-    const lineWidth = options.lineWidth || 1
-    const renderingMode = options.renderingMode || 2  // Fill then stroke
+    const fontSize = options.fontSize || 12;
+    const font = options.font || 'Helvetica';
+    const fontId = this.getFontId(font as PDFBaseFont);
+    const lineWidth = options.lineWidth || 1;
+    const renderingMode = options.renderingMode || 2; // Fill then stroke
 
-    const escapedText = this.escapePDFString(options.text)
+    const escapedText = this.escapePDFString(options.text);
 
-    this.addContent('BT')
-    this.addContent(`/${fontId} ${fontSize} Tf`)
-    this.addContent(`${options.x} ${options.y} Td`)
+    this.addContent('BT');
+    this.addContent(`/${fontId} ${fontSize} Tf`);
+    this.addContent(`${options.x} ${options.y} Td`);
 
     // Set rendering mode
-    this.addContent(`${renderingMode} Tr`)
+    this.addContent(`${renderingMode} Tr`);
 
     // Set line width for stroke
-    this.addContent(`${lineWidth} w`)
+    this.addContent(`${lineWidth} w`);
 
     // Set fill color
     if (options.fillColor) {
-      const [r, g, b] = Array.isArray(options.fillColor) ? options.fillColor : this.parseColor(options.fillColor)
-      this.addContent(`${r} ${g} ${b} rg`)
+      const [r, g, b] = Array.isArray(options.fillColor)
+        ? options.fillColor
+        : this.parseColor(options.fillColor);
+      this.addContent(`${r} ${g} ${b} rg`);
     }
 
     // Set stroke color
     if (options.strokeColor) {
-      const [r, g, b] = Array.isArray(options.strokeColor) ? options.strokeColor : this.parseColor(options.strokeColor)
-      this.addContent(`${r} ${g} ${b} RG`)
+      const [r, g, b] = Array.isArray(options.strokeColor)
+        ? options.strokeColor
+        : this.parseColor(options.strokeColor);
+      this.addContent(`${r} ${g} ${b} RG`);
     }
 
-    this.addContent(`(${escapedText}) Tj`)
-    this.addContent('ET')
+    this.addContent(`(${escapedText}) Tj`);
+    this.addContent('ET');
 
     // Reset rendering mode to default (fill)
-    this.addContent('0 Tr')
+    this.addContent('0 Tr');
   }
 
   /**
@@ -1413,16 +1602,16 @@ export class PDFWriter {
    */
   beginTransparencyGroup(isolated: boolean = true, knockout: boolean = false): void {
     // Save graphics state
-    this.saveGraphicsState()
+    this.saveGraphicsState();
 
     // Begin transparency group using XObject stream
     // Note: This is a simplified implementation
     // Full implementation would create a Form XObject with /Group dictionary
-    this.addContent('q')  // Save state
+    this.addContent('q'); // Save state
 
     // Set blend mode to Normal for isolated groups
     if (isolated) {
-      this.blendMode('Normal')
+      this.blendMode('Normal');
     }
   }
 
@@ -1436,8 +1625,8 @@ export class PDFWriter {
    * ```
    */
   endTransparencyGroup(): void {
-    this.addContent('Q')  // Restore state
-    this.restoreGraphicsState()
+    this.addContent('Q'); // Restore state
+    this.restoreGraphicsState();
   }
 
   /**
@@ -1464,15 +1653,15 @@ export class PDFWriter {
    * ```
    */
   createLayer(options: LayerOptions): string {
-    const name = options.name
+    const name = options.name;
 
     // Check if layer already exists
     if (this.layerManager.hasLayer(name)) {
-      return name
+      return name;
     }
 
-    this.layerManager.registerLayer(name, options)
-    return name
+    this.layerManager.registerLayer(name, options);
+    return name;
   }
 
   /**
@@ -1488,18 +1677,26 @@ export class PDFWriter {
    */
   beginLayer(layerName: string): void {
     if (!this.layerManager.hasLayer(layerName)) {
-      throw new Error(`Layer '${layerName}' not found. Create it first with createLayer()`)
+      throw new ValidationError(
+        `Layer '${layerName}' not found. Create it first with createLayer()`,
+        'layerName',
+        layerName
+      );
     }
 
     if (this.layerManager.getCurrentLayer() !== null) {
-      throw new Error(`Already in layer '${this.layerManager.getCurrentLayer()}'. Call endLayer() first.`)
+      throw new ValidationError(
+        `Already in layer '${this.layerManager.getCurrentLayer()}'. Call endLayer() first.`,
+        'layerName',
+        layerName
+      );
     }
 
-    const layer = this.layerManager.getLayer(layerName)!
-    this.layerManager.setCurrentLayer(layerName)
+    const layer = this.layerManager.getLayer(layerName)!;
+    this.layerManager.setCurrentLayer(layerName);
 
     // Add Begin Marked Content (BMC) with OC (Optional Content) property
-    this.addContent(`/OC /OC${layer.id} BDC`)
+    this.addContent(`/OC /OC${layer.id} BDC`);
   }
 
   /**
@@ -1513,49 +1710,63 @@ export class PDFWriter {
    */
   endLayer(): void {
     if (this.layerManager.getCurrentLayer() === null) {
-      throw new Error('No active layer. Call beginLayer() first.')
+      throw new ValidationError('No active layer. Call beginLayer() first.');
     }
 
     // Add End Marked Content (EMC)
-    this.addContent('EMC')
-    this.layerManager.setCurrentLayer(null)
+    this.addContent('EMC');
+    this.layerManager.setCurrentLayer(null);
   }
 
   /**
    * Add text to the PDF (simple version)
    */
-  text(text: string, x: number, y: number, fontSize?: number, font?: string): void
-  text(text: string, x: number, y: number, fontSize: number, font: string, options: TextOptions): void
-  text(text: string, x: number, y: number, fontSize?: number, font?: string, options?: TextOptions): void {
-    fontSize = fontSize || 12
-    font = font || 'Helvetica'
+  text(text: string, x: number, y: number, fontSize?: number, font?: string): void;
+  text(
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number,
+    font: string,
+    options: TextOptions
+  ): void;
+  text(
+    text: string,
+    x: number,
+    y: number,
+    fontSize?: number,
+    font?: string,
+    options?: TextOptions
+  ): void {
+    fontSize = fontSize || 12;
+    font = font || 'Helvetica';
 
     // Track character usage for custom fonts (for subsetting and ToUnicode)
     if (this.currentCustomFont) {
-      const fontInfo = this.fontManager.getFont(this.currentCustomFont)
+      const fontInfo = this.fontManager.getFont(this.currentCustomFont);
       if (fontInfo) {
-        this.fontManager.trackCharacterUsage(fontInfo, text)
+        this.fontManager.trackCharacterUsage(fontInfo, text);
       }
     }
 
     // Use custom font or default font
     const fontId = this.currentCustomFont
       ? this.getActiveFontId()
-      : this.getFontId(font as PDFBaseFont)
+      : this.getFontId(font as PDFBaseFont);
 
     // If no options, use simple text rendering
     if (!options) {
-      this.addContent('BT')
-      this.addContent(`/${fontId} ${fontSize} Tf`)
-      this.addContent(`${x} ${y} Td`)
-      const escapedText = this.escapePDFString(text)
-      this.addContent(`(${escapedText}) Tj`)
-      this.addContent('ET')
-      return
+      this.addContent('BT');
+      this.addContent(`/${fontId} ${fontSize} Tf`);
+      this.addContent(`${x} ${y} Td`);
+      const escapedText = this.escapePDFString(text);
+      this.addContent(`(${escapedText}) Tj`);
+      this.addContent('ET');
+      return;
     }
 
     // Advanced text rendering with options
-    this.renderAdvancedText(text, x, y, fontSize, font, options)
+    this.renderAdvancedText(text, x, y, fontSize, font, options);
   }
 
   /**
@@ -1569,199 +1780,213 @@ export class PDFWriter {
     font: string,
     options: TextOptions
   ): void {
-    const baseFont = font as PDFBaseFont
+    const baseFont = font as PDFBaseFont;
     // Use custom font if active, otherwise use specified font
-    const fontId = this.currentCustomFont
-      ? this.getActiveFontId()
-      : this.getFontId(baseFont)
-    const width = options.width
-    const align = options.align || 'left'
-    const lineGap = options.lineGap || 0
-    const lineHeight = options.lineHeight || TextMeasure.calculateLineHeight(fontSize, lineGap)
+    const fontId = this.currentCustomFont ? this.getActiveFontId() : this.getFontId(baseFont);
+    const width = options.width;
+    const align = options.align || 'left';
+    const lineGap = options.lineGap || 0;
+    const lineHeight = options.lineHeight || TextMeasure.calculateLineHeight(fontSize, lineGap);
 
     // Apply rotation if specified
-    const hasRotation = options.rotation !== undefined && options.rotation !== 0
+    const hasRotation = options.rotation !== undefined && options.rotation !== 0;
     if (hasRotation) {
-      this.saveGraphicsState()
+      this.saveGraphicsState();
       // Translate to rotation point (x, y), rotate, then translate back
-      const rad = (options.rotation! * Math.PI) / 180
-      const cos = Math.cos(rad)
-      const sin = Math.sin(rad)
+      const rad = (options.rotation! * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
       // Apply transformation matrix: translate, rotate, translate back
       // This rotates around the point (x, y)
-      this.transform(cos, sin, -sin, cos, x - x * cos + y * sin, y - x * sin - y * cos)
+      this.transform(cos, sin, -sin, cos, x - x * cos + y * sin, y - x * sin - y * cos);
     }
 
     // Handle multi-column layout
-    const columns = options.columns || 1
-    const columnGap = options.columnGap !== undefined ? options.columnGap : 18  // Default 18pt (1/4 inch)
+    const columns = options.columns || 1;
+    const columnGap = options.columnGap !== undefined ? options.columnGap : 18; // Default 18pt (1/4 inch)
 
-    let columnWidth: number
+    let columnWidth: number;
     if (columns > 1 && width) {
       // Calculate width per column
-      const totalGapWidth = columnGap * (columns - 1)
-      columnWidth = (width - totalGapWidth) / columns
+      const totalGapWidth = columnGap * (columns - 1);
+      columnWidth = (width - totalGapWidth) / columns;
     } else {
-      columnWidth = width || 0
+      columnWidth = width || 0;
     }
 
     // Calculate lines (with word wrap if width is specified)
-    let lines: string[]
+    let lines: string[];
     if (columnWidth > 0) {
-      lines = TextMeasure.wrapText(text, columnWidth, fontSize, baseFont)
+      lines = TextMeasure.wrapText(text, columnWidth, fontSize, baseFont);
     } else if (width) {
-      lines = TextMeasure.wrapText(text, width, fontSize, baseFont)
+      lines = TextMeasure.wrapText(text, width, fontSize, baseFont);
     } else {
-      lines = [text]
+      lines = [text];
     }
 
     // Apply ellipsis if text exceeds available height
     if (options.ellipsis && options.height && width) {
-      const maxLines = Math.floor(options.height / lineHeight)
+      const maxLines = Math.floor(options.height / lineHeight);
       if (lines.length > maxLines && maxLines > 0) {
         // Truncate to max lines and add ellipsis to last line
-        lines = lines.slice(0, maxLines)
-        const ellipsisChar = typeof options.ellipsis === 'string' ? options.ellipsis : '...'
-        const lastLine = lines[maxLines - 1]
-        const effectiveWidth = columnWidth > 0 ? columnWidth : width
-        lines[maxLines - 1] = TextMeasure.truncateWithEllipsis(lastLine, effectiveWidth, fontSize, baseFont, ellipsisChar)
+        lines = lines.slice(0, maxLines);
+        const ellipsisChar = typeof options.ellipsis === 'string' ? options.ellipsis : '...';
+        const lastLine = lines[maxLines - 1];
+        const effectiveWidth = columnWidth > 0 ? columnWidth : width;
+        lines[maxLines - 1] = TextMeasure.truncateWithEllipsis(
+          lastLine,
+          effectiveWidth,
+          fontSize,
+          baseFont,
+          ellipsisChar
+        );
       }
     }
 
     // For multi-column layout, split lines into columns
     if (columns > 1 && options.height) {
-      const linesPerColumn = Math.floor(options.height / lineHeight)
+      const linesPerColumn = Math.floor(options.height / lineHeight);
 
       // Render each column
       for (let col = 0; col < columns; col++) {
-        const startLine = col * linesPerColumn
-        const endLine = Math.min(startLine + linesPerColumn, lines.length)
-        const columnLines = lines.slice(startLine, endLine)
+        const startLine = col * linesPerColumn;
+        const endLine = Math.min(startLine + linesPerColumn, lines.length);
+        const columnLines = lines.slice(startLine, endLine);
 
-        if (columnLines.length === 0) break  // No more content
+        if (columnLines.length === 0) break; // No more content
 
-        const columnX = x + col * (columnWidth + columnGap)
-        this.renderColumnLines(columnLines, columnX, y, columnWidth, fontSize, baseFont, fontId, options, lineHeight)
+        const columnX = x + col * (columnWidth + columnGap);
+        this.renderColumnLines(
+          columnLines,
+          columnX,
+          y,
+          columnWidth,
+          fontSize,
+          baseFont,
+          fontId,
+          options,
+          lineHeight
+        );
       }
 
       // Update current position
-      this.currentX = x
-      this.currentY = y - options.height
-      this.currentFontSize = fontSize
-      this.currentLineHeight = lineHeight
+      this.currentX = x;
+      this.currentY = y - options.height;
+      this.currentFontSize = fontSize;
+      this.currentLineHeight = lineHeight;
 
       // Apply paragraph gap if specified
       if (options.paragraphGap) {
-        this.currentY -= options.paragraphGap
+        this.currentY -= options.paragraphGap;
       }
 
       // Restore graphics state if rotation was applied
       if (hasRotation) {
-        this.restoreGraphicsState()
+        this.restoreGraphicsState();
       }
-      return
+      return;
     }
 
     // Single column rendering (original logic)
     // Calculate starting Y position based on vertical alignment
-    let currentY = y
+    let currentY = y;
     if (options.valign && options.height) {
-      const totalHeight = lines.length * lineHeight
+      const totalHeight = lines.length * lineHeight;
       switch (options.valign) {
         case 'center':
-          currentY = y + (options.height - totalHeight) / 2
-          break
+          currentY = y + (options.height - totalHeight) / 2;
+          break;
         case 'bottom':
-          currentY = y + options.height - totalHeight
-          break
+          currentY = y + options.height - totalHeight;
+          break;
         // 'top' is default, no change needed
       }
     }
 
     // Render each line
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      let lineX = x
+      const line = lines[i];
+      let lineX = x;
 
       // Apply first line indent
       if (i === 0 && options.indent) {
-        lineX += options.indent
+        lineX += options.indent;
       }
 
       // Calculate X position based on alignment
       if (align !== 'left' && width) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont)
+        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont);
 
         switch (align) {
           case 'center':
-            lineX = x + (width - lineWidth) / 2
-            break
+            lineX = x + (width - lineWidth) / 2;
+            break;
           case 'right':
-            lineX = x + width - lineWidth
-            break
+            lineX = x + width - lineWidth;
+            break;
           case 'justify':
             // Justify only if not the last line and line has multiple words
             if (i < lines.length - 1 && line.trim().includes(' ')) {
-              this.renderJustifiedLine(line, x, currentY, width, fontSize, baseFont, fontId)
-              currentY -= lineHeight
-              continue
+              this.renderJustifiedLine(line, x, currentY, width, fontSize, baseFont, fontId);
+              currentY -= lineHeight;
+              continue;
             }
-            break
+            break;
         }
       }
 
       // Render the line
-      this.addContent('BT')
-      this.addContent(`/${fontId} ${fontSize} Tf`)
+      this.addContent('BT');
+      this.addContent(`/${fontId} ${fontSize} Tf`);
 
       // Apply character and word spacing if specified
       if (options.characterSpacing) {
-        this.addContent(`${options.characterSpacing} Tc`)
+        this.addContent(`${options.characterSpacing} Tc`);
       }
       if (options.wordSpacing) {
-        this.addContent(`${options.wordSpacing} Tw`)
+        this.addContent(`${options.wordSpacing} Tw`);
       }
 
-      this.addContent(`${lineX} ${currentY} Td`)
-      const escapedText = this.escapePDFString(line)
-      this.addContent(`(${escapedText}) Tj`)
-      this.addContent('ET')
+      this.addContent(`${lineX} ${currentY} Td`);
+      const escapedText = this.escapePDFString(line);
+      this.addContent(`(${escapedText}) Tj`);
+      this.addContent('ET');
 
       // Draw underline if requested
       if (options.underline) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont)
-        const underlineY = currentY - fontSize * 0.15
-        this.setLineWidth(fontSize * 0.05)
-        this.moveTo(lineX, underlineY)
-        this.lineTo(lineX + lineWidth, underlineY)
-        this.stroke()
+        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont);
+        const underlineY = currentY - fontSize * 0.15;
+        this.setLineWidth(fontSize * 0.05);
+        this.moveTo(lineX, underlineY);
+        this.lineTo(lineX + lineWidth, underlineY);
+        this.stroke();
       }
 
       // Draw strikethrough if requested
       if (options.strike) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont)
-        const strikeY = currentY + fontSize * 0.3
-        this.setLineWidth(fontSize * 0.05)
-        this.moveTo(lineX, strikeY)
-        this.lineTo(lineX + lineWidth, strikeY)
-        this.stroke()
+        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont);
+        const strikeY = currentY + fontSize * 0.3;
+        this.setLineWidth(fontSize * 0.05);
+        this.moveTo(lineX, strikeY);
+        this.lineTo(lineX + lineWidth, strikeY);
+        this.stroke();
       }
 
       // Add link annotation if requested
       if (options.link) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont)
+        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont);
         this.pages[this.currentPageIndex].annotations.push({
           x: lineX,
           y: currentY,
           width: lineWidth,
           height: fontSize,
-          url: options.link
-        })
+          url: options.link,
+        });
       }
 
       // Add goTo link annotation if requested (PDFKit compatible)
       if (options.goTo) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont)
+        const lineWidth = TextMeasure.measureText(line, fontSize, baseFont);
         const goToLink: GoToLink = {
           type: 'goto',
           destination: options.goTo,
@@ -1769,39 +1994,40 @@ export class PDFWriter {
           x: lineX,
           y: currentY,
           width: lineWidth,
-          height: fontSize
-        }
-        this.annotationManager.addLink(goToLink)
+          height: fontSize,
+        };
+        this.annotationManager.addLink(goToLink);
       }
 
       // Create named destination if requested (PDFKit compatible)
-      if (options.destination && i === 0) {  // Only for first line
+      if (options.destination && i === 0) {
+        // Only for first line
         this.namedDestinations.set(options.destination, {
           name: options.destination,
           page: this.currentPageIndex,
           x: lineX,
           y: currentY,
-          fit: 'XYZ'
-        })
+          fit: 'XYZ',
+        });
       }
 
-      currentY -= lineHeight
+      currentY -= lineHeight;
     }
 
     // Update current position for continued text
-    this.currentX = x
-    this.currentY = currentY
-    this.currentFontSize = fontSize
-    this.currentLineHeight = lineHeight  // Track for moveDown/moveUp
+    this.currentX = x;
+    this.currentY = currentY;
+    this.currentFontSize = fontSize;
+    this.currentLineHeight = lineHeight; // Track for moveDown/moveUp
 
     // Apply paragraph gap if specified
     if (options.paragraphGap) {
-      this.currentY -= options.paragraphGap
+      this.currentY -= options.paragraphGap;
     }
 
     // Restore graphics state if rotation was applied
     if (hasRotation) {
-      this.restoreGraphicsState()
+      this.restoreGraphicsState();
     }
   }
 
@@ -1819,78 +2045,78 @@ export class PDFWriter {
     options: TextOptions,
     lineHeight: number
   ): void {
-    const align = options.align || 'left'
-    let currentY = y
+    const align = options.align || 'left';
+    let currentY = y;
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      let lineX = x
+      const line = lines[i];
+      let lineX = x;
 
       // Apply first line indent only to first line of first column
       if (i === 0 && options.indent && x === (options.x || 0)) {
-        lineX += options.indent
+        lineX += options.indent;
       }
 
       // Calculate X position based on alignment
       if (align !== 'left' && columnWidth) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, font)
+        const lineWidth = TextMeasure.measureText(line, fontSize, font);
 
         switch (align) {
           case 'center':
-            lineX = x + (columnWidth - lineWidth) / 2
-            break
+            lineX = x + (columnWidth - lineWidth) / 2;
+            break;
           case 'right':
-            lineX = x + columnWidth - lineWidth
-            break
+            lineX = x + columnWidth - lineWidth;
+            break;
           case 'justify':
             // Justify only if not the last line and line has multiple words
             if (i < lines.length - 1 && line.trim().includes(' ')) {
-              this.renderJustifiedLine(line, x, currentY, columnWidth, fontSize, font, fontId)
-              currentY -= lineHeight
-              continue
+              this.renderJustifiedLine(line, x, currentY, columnWidth, fontSize, font, fontId);
+              currentY -= lineHeight;
+              continue;
             }
-            break
+            break;
         }
       }
 
       // Render the line
-      this.addContent('BT')
-      this.addContent(`/${fontId} ${fontSize} Tf`)
+      this.addContent('BT');
+      this.addContent(`/${fontId} ${fontSize} Tf`);
 
       // Apply character and word spacing if specified
       if (options.characterSpacing) {
-        this.addContent(`${options.characterSpacing} Tc`)
+        this.addContent(`${options.characterSpacing} Tc`);
       }
       if (options.wordSpacing) {
-        this.addContent(`${options.wordSpacing} Tw`)
+        this.addContent(`${options.wordSpacing} Tw`);
       }
 
-      this.addContent(`${lineX} ${currentY} Td`)
-      const escapedText = this.escapePDFString(line)
-      this.addContent(`(${escapedText}) Tj`)
-      this.addContent('ET')
+      this.addContent(`${lineX} ${currentY} Td`);
+      const escapedText = this.escapePDFString(line);
+      this.addContent(`(${escapedText}) Tj`);
+      this.addContent('ET');
 
       // Draw underline if requested
       if (options.underline) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, font)
-        const underlineY = currentY - fontSize * 0.15
-        this.setLineWidth(fontSize * 0.05)
-        this.moveTo(lineX, underlineY)
-        this.lineTo(lineX + lineWidth, underlineY)
-        this.stroke()
+        const lineWidth = TextMeasure.measureText(line, fontSize, font);
+        const underlineY = currentY - fontSize * 0.15;
+        this.setLineWidth(fontSize * 0.05);
+        this.moveTo(lineX, underlineY);
+        this.lineTo(lineX + lineWidth, underlineY);
+        this.stroke();
       }
 
       // Draw strikethrough if requested
       if (options.strike) {
-        const lineWidth = TextMeasure.measureText(line, fontSize, font)
-        const strikeY = currentY + fontSize * 0.3
-        this.setLineWidth(fontSize * 0.05)
-        this.moveTo(lineX, strikeY)
-        this.lineTo(lineX + lineWidth, strikeY)
-        this.stroke()
+        const lineWidth = TextMeasure.measureText(line, fontSize, font);
+        const strikeY = currentY + fontSize * 0.3;
+        this.setLineWidth(fontSize * 0.05);
+        this.moveTo(lineX, strikeY);
+        this.lineTo(lineX + lineWidth, strikeY);
+        this.stroke();
       }
 
-      currentY -= lineHeight
+      currentY -= lineHeight;
     }
   }
 
@@ -1906,51 +2132,51 @@ export class PDFWriter {
     font: PDFBaseFont,
     fontId: string
   ): void {
-    const words = line.trim().split(/\s+/)
+    const words = line.trim().split(/\s+/);
     if (words.length <= 1) {
       // Can't justify single word, render normally
-      this.addContent('BT')
-      this.addContent(`/${fontId} ${fontSize} Tf`)
-      this.addContent(`${x} ${y} Td`)
-      const escapedText = this.escapePDFString(line)
-      this.addContent(`(${escapedText}) Tj`)
-      this.addContent('ET')
-      return
+      this.addContent('BT');
+      this.addContent(`/${fontId} ${fontSize} Tf`);
+      this.addContent(`${x} ${y} Td`);
+      const escapedText = this.escapePDFString(line);
+      this.addContent(`(${escapedText}) Tj`);
+      this.addContent('ET');
+      return;
     }
 
     // Calculate total width of words without spaces
-    let wordsWidth = 0
+    let wordsWidth = 0;
     for (const word of words) {
-      wordsWidth += TextMeasure.measureText(word, fontSize, font)
+      wordsWidth += TextMeasure.measureText(word, fontSize, font);
     }
 
     // Calculate space width to distribute
-    const totalSpaceWidth = width - wordsWidth
-    const spaceWidth = totalSpaceWidth / (words.length - 1)
+    const totalSpaceWidth = width - wordsWidth;
+    const spaceWidth = totalSpaceWidth / (words.length - 1);
 
     // Render words with calculated spacing
-    let currentX = x
-    this.addContent('BT')
-    this.addContent(`/${fontId} ${fontSize} Tf`)
+    let currentX = x;
+    this.addContent('BT');
+    this.addContent(`/${fontId} ${fontSize} Tf`);
 
     for (let i = 0; i < words.length; i++) {
-      const word = words[i]
+      const word = words[i];
 
-      this.addContent(`${currentX} ${y} Td`)
-      const escapedWord = this.escapePDFString(word)
-      this.addContent(`(${escapedWord}) Tj`)
+      this.addContent(`${currentX} ${y} Td`);
+      const escapedWord = this.escapePDFString(word);
+      this.addContent(`(${escapedWord}) Tj`);
 
       if (i < words.length - 1) {
-        const wordWidth = TextMeasure.measureText(word, fontSize, font)
-        currentX += wordWidth + spaceWidth
+        const wordWidth = TextMeasure.measureText(word, fontSize, font);
+        currentX += wordWidth + spaceWidth;
         // Reset position for next word
-        this.addContent('ET')
-        this.addContent('BT')
-        this.addContent(`/${fontId} ${fontSize} Tf`)
+        this.addContent('ET');
+        this.addContent('BT');
+        this.addContent(`/${fontId} ${fontSize} Tf`);
       }
     }
 
-    this.addContent('ET')
+    this.addContent('ET');
   }
 
   /**
@@ -1961,9 +2187,9 @@ export class PDFWriter {
    * @returns Width in points
    */
   widthOfString(text: string, fontSize?: number, font?: PDFBaseFont): number {
-    const size = fontSize !== undefined ? fontSize : this.currentFontSize
-    const fontName = font !== undefined ? font : this.baseFont
-    return TextMeasure.measureText(text, size, fontName)
+    const size = fontSize !== undefined ? fontSize : this.currentFontSize;
+    const fontName = font !== undefined ? font : this.baseFont;
+    return TextMeasure.measureText(text, size, fontName);
   }
 
   /**
@@ -1974,8 +2200,8 @@ export class PDFWriter {
    * @returns Height in points
    */
   heightOfString(text: string = '', fontSize?: number, lineGap: number = 0): number {
-    const size = fontSize !== undefined ? fontSize : this.currentFontSize
-    return TextMeasure.calculateLineHeight(size, lineGap)
+    const size = fontSize !== undefined ? fontSize : this.currentFontSize;
+    return TextMeasure.calculateLineHeight(size, lineGap);
   }
 
   /**
@@ -2000,71 +2226,71 @@ export class PDFWriter {
    * ```
    */
   list(items: string[], x?: number, y?: number, options: ListOptions = {}): void {
-    const startX = x !== undefined ? x : this.currentX
-    const startY = y !== undefined ? y : this.currentY
-    const fontSize = options.fontSize || this.currentFontSize
-    const font = options.font || this.baseFont
-    const fontId = this.currentCustomFont || this.getFontId(font)
-    const lineGap = options.lineGap || 0
-    const lineHeight = TextMeasure.calculateLineHeight(fontSize, lineGap)
-    const bulletIndent = options.bulletIndent || 0
-    const textIndent = options.textIndent || 20
-    const listGap = options.listGap || 5
-    const bulletStyle = options.bulletStyle || 'disc'
-    const width = options.width
+    const startX = x !== undefined ? x : this.currentX;
+    const startY = y !== undefined ? y : this.currentY;
+    const fontSize = options.fontSize || this.currentFontSize;
+    const font = options.font || this.baseFont;
+    const fontId = this.currentCustomFont || this.getFontId(font);
+    const lineGap = options.lineGap || 0;
+    const lineHeight = TextMeasure.calculateLineHeight(fontSize, lineGap);
+    const bulletIndent = options.bulletIndent || 0;
+    const textIndent = options.textIndent || 20;
+    const listGap = options.listGap || 5;
+    const bulletStyle = options.bulletStyle || 'disc';
+    const width = options.width;
 
-    let currentY = startY
+    let currentY = startY;
 
     for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      const bulletX = startX + bulletIndent
-      const textX = startX + textIndent  // Text starts at textIndent, not bulletGap
+      const item = items[i];
+      const bulletX = startX + bulletIndent;
+      const textX = startX + textIndent; // Text starts at textIndent, not bulletGap
 
       // Get bullet character/text
-      const bullet = this.getBulletText(i + 1, bulletStyle)
+      const bullet = this.getBulletText(i + 1, bulletStyle);
 
       // Render bullet
-      this.addContent('BT')
-      this.addContent(`/${fontId} ${fontSize} Tf`)
-      this.addContent(`${bulletX} ${currentY} Td`)
-      const escapedBullet = this.escapePDFString(bullet)
-      this.addContent(`(${escapedBullet}) Tj`)
-      this.addContent('ET')
+      this.addContent('BT');
+      this.addContent(`/${fontId} ${fontSize} Tf`);
+      this.addContent(`${bulletX} ${currentY} Td`);
+      const escapedBullet = this.escapePDFString(bullet);
+      this.addContent(`(${escapedBullet}) Tj`);
+      this.addContent('ET');
 
       // Render item text (with word wrap if width specified)
-      const textWidth = width ? width - textIndent : undefined
-      let lines: string[]
+      const textWidth = width ? width - textIndent : undefined;
+      let lines: string[];
       if (textWidth) {
-        lines = TextMeasure.wrapText(item, textWidth, fontSize, font)
+        lines = TextMeasure.wrapText(item, textWidth, fontSize, font);
       } else {
-        lines = [item]
+        lines = [item];
       }
 
       // Render text lines
       for (let j = 0; j < lines.length; j++) {
-        const line = lines[j]
-        const lineY = currentY - (j * lineHeight)
-        this.addContent('BT')
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${textX} ${lineY} Td`)
-        const escapedLine = this.escapePDFString(line)
-        this.addContent(`(${escapedLine}) Tj`)
-        this.addContent('ET')
+        const line = lines[j];
+        const lineY = currentY - j * lineHeight;
+        this.addContent('BT');
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${textX} ${lineY} Td`);
+        const escapedLine = this.escapePDFString(line);
+        this.addContent(`(${escapedLine}) Tj`);
+        this.addContent('ET');
       }
 
       // Update Y position after all lines of this item
-      currentY -= lines.length * lineHeight
+      currentY -= lines.length * lineHeight;
 
       // Add gap between list items
       if (i < items.length - 1) {
-        currentY -= listGap
+        currentY -= listGap;
       }
     }
 
     // Update current position
-    this.currentX = startX
-    this.currentY = currentY
-    this.currentFontSize = fontSize
+    this.currentX = startX;
+    this.currentY = currentY;
+    this.currentFontSize = fontSize;
   }
 
   /**
@@ -2073,24 +2299,24 @@ export class PDFWriter {
   private getBulletText(index: number, style: BulletStyle): string {
     switch (style) {
       case 'disc':
-        return '\xB7'  // · (middle dot, available in WinAnsiEncoding at 0xB7)
+        return '\xB7'; // · (middle dot, available in WinAnsiEncoding at 0xB7)
       case 'circle':
-        return '\xB0'  // ° (degree symbol, available in WinAnsiEncoding at 0xB0)
+        return '\xB0'; // ° (degree symbol, available in WinAnsiEncoding at 0xB0)
       case 'square':
-        return '\xA7'  // § (section symbol, available in WinAnsiEncoding at 0xA7)
+        return '\xA7'; // § (section symbol, available in WinAnsiEncoding at 0xA7)
       case 'decimal':
-        return `${index}.`
+        return `${index}.`;
       case 'lower-alpha':
-        return `${String.fromCharCode(96 + index)}.`  // a. b. c. ...
+        return `${String.fromCharCode(96 + index)}.`; // a. b. c. ...
       case 'upper-alpha':
-        return `${String.fromCharCode(64 + index)}.`  // A. B. C. ...
+        return `${String.fromCharCode(64 + index)}.`; // A. B. C. ...
       case 'lower-roman':
-        return `${this.toRoman(index).toLowerCase()}.`
+        return `${this.toRoman(index).toLowerCase()}.`;
       case 'upper-roman':
-        return `${this.toRoman(index)}.`
+        return `${this.toRoman(index)}.`;
       default:
         // Custom bullet string
-        return style
+        return style;
     }
   }
 
@@ -2099,19 +2325,29 @@ export class PDFWriter {
    */
   private toRoman(num: number): string {
     const romanNumerals: [number, string][] = [
-      [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
-      [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
-      [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
-    ]
+      [1000, 'M'],
+      [900, 'CM'],
+      [500, 'D'],
+      [400, 'CD'],
+      [100, 'C'],
+      [90, 'XC'],
+      [50, 'L'],
+      [40, 'XL'],
+      [10, 'X'],
+      [9, 'IX'],
+      [5, 'V'],
+      [4, 'IV'],
+      [1, 'I'],
+    ];
 
-    let result = ''
+    let result = '';
     for (const [value, numeral] of romanNumerals) {
       while (num >= value) {
-        result += numeral
-        num -= value
+        result += numeral;
+        num -= value;
       }
     }
-    return result
+    return result;
   }
 
   /**
@@ -2131,9 +2367,10 @@ export class PDFWriter {
    * ```
    */
   moveDown(lines: number = 1): this {
-    const lineHeight = this.currentLineHeight || TextMeasure.calculateLineHeight(this.currentFontSize, 0)
-    this.currentY -= lineHeight * lines
-    return this
+    const lineHeight =
+      this.currentLineHeight || TextMeasure.calculateLineHeight(this.currentFontSize, 0);
+    this.currentY -= lineHeight * lines;
+    return this;
   }
 
   /**
@@ -2153,9 +2390,10 @@ export class PDFWriter {
    * ```
    */
   moveUp(lines: number = 1): this {
-    const lineHeight = this.currentLineHeight || TextMeasure.calculateLineHeight(this.currentFontSize, 0)
-    this.currentY += lineHeight * lines
-    return this
+    const lineHeight =
+      this.currentLineHeight || TextMeasure.calculateLineHeight(this.currentFontSize, 0);
+    this.currentY += lineHeight * lines;
+    return this;
   }
 
   /**
@@ -2164,7 +2402,7 @@ export class PDFWriter {
    * @returns Current Y coordinate
    */
   getCurrentY(): number {
-    return this.currentY
+    return this.currentY;
   }
 
   /**
@@ -2173,7 +2411,14 @@ export class PDFWriter {
    * @returns Current X coordinate
    */
   getCurrentX(): number {
-    return this.currentX
+    return this.currentX;
+  }
+
+  /**
+   * Generate a stable hash for a Buffer to use as deduplication key
+   */
+  private hashBuffer(buf: Buffer): string {
+    return crypto.createHash('md5').update(buf).digest('hex');
   }
 
   /**
@@ -2182,23 +2427,26 @@ export class PDFWriter {
    */
   async embedImage(source: string | File | Buffer): Promise<string> {
     // Create a hash key for the image to avoid duplicates
-    const key = typeof source === 'string'
-      ? source
-      : (source instanceof File ? source.name : source.toString('base64').substring(0, 100))
+    const key =
+      typeof source === 'string'
+        ? source
+        : source instanceof File
+          ? source.name
+          : this.hashBuffer(source);
 
     // Check if image already embedded
     if (this.imageManager.hasImage(key)) {
-      const img = this.imageManager.getImage(key)!
-      return `Im${img.id}`
+      const img = this.imageManager.getImage(key)!;
+      return `Im${img.id}`;
     }
 
     // Parse the image (async now)
-    const imageInfo = await ImageParser.load(source)
+    const imageInfo = await ImageParser.load(source);
 
     // Register the image
-    const imageId = this.imageManager.registerImage(key, imageInfo)
+    const imageId = this.imageManager.registerImage(key, imageInfo);
 
-    return `Im${imageId}`
+    return `Im${imageId}`;
   }
 
   /**
@@ -2206,18 +2454,18 @@ export class PDFWriter {
    */
   embedImageInfo(imageInfo: ImageInfo): string {
     // Create a hash key based on the image data
-    const key = imageInfo.data.toString('base64').substring(0, 100)
+    const key = this.hashBuffer(imageInfo.data);
 
     // Check if image already embedded
     if (this.imageManager.hasImage(key)) {
-      const img = this.imageManager.getImage(key)!
-      return `Im${img.id}`
+      const img = this.imageManager.getImage(key)!;
+      return `Im${img.id}`;
     }
 
     // Register the image
-    const imageId = this.imageManager.registerImage(key, imageInfo)
+    const imageId = this.imageManager.registerImage(key, imageInfo);
 
-    return `Im${imageId}`
+    return `Im${imageId}`;
   }
 
   /**
@@ -2226,14 +2474,14 @@ export class PDFWriter {
   private getFontId(font: PDFBaseFont): string {
     // Check if font already registered
     if (this.fonts.has(font)) {
-      const fontIndex = this.fonts.get(font)!
-      return `F${fontIndex}`
+      const fontIndex = this.fonts.get(font)!;
+      return `F${fontIndex}`;
     }
 
     // Register new font
-    const fontIndex = this.nextFontId++
-    this.fonts.set(font, fontIndex)
-    return `F${fontIndex}`
+    const fontIndex = this.nextFontId++;
+    this.fonts.set(font, fontIndex);
+    return `F${fontIndex}`;
   }
 
   /**
@@ -2242,12 +2490,12 @@ export class PDFWriter {
   private getActiveFontId(): string {
     // Priority: custom font > base font
     if (this.currentCustomFont) {
-      const fontIndex = this.customFonts.get(this.currentCustomFont)
+      const fontIndex = this.customFonts.get(this.currentCustomFont);
       if (fontIndex !== undefined) {
-        return `F${fontIndex}`
+        return `F${fontIndex}`;
       }
     }
-    return this.getFontId(this.baseFont)
+    return this.getFontId(this.baseFont);
   }
 
   /**
@@ -2255,17 +2503,17 @@ export class PDFWriter {
    */
   drawImage(imageName: string, x: number, y: number, width: number, height: number): void {
     // Save graphics state
-    this.addContent('q')
+    this.addContent('q');
 
     // Transform matrix: width 0 0 height x y cm
     // PDF images are 1x1 unit squares, we need to scale and position them
-    this.addContent(`${width} 0 0 ${height} ${x} ${y} cm`)
+    this.addContent(`${width} 0 0 ${height} ${x} ${y} cm`);
 
     // Paint the image
-    this.addContent(`/${imageName} Do`)
+    this.addContent(`/${imageName} Do`);
 
     // Restore graphics state
-    this.addContent('Q')
+    this.addContent('Q');
   }
 
   /**
@@ -2274,23 +2522,23 @@ export class PDFWriter {
    */
   async qrCode(options: QRCodeOptions): Promise<void> {
     // Generate QR code as PNG buffer
-    const qrBuffer = await QRCodeGenerator.generate(options)
+    const qrBuffer = await QRCodeGenerator.generate(options);
 
     // Parse the QR code image (async now)
-    const imageInfo = await ImageParser.load(qrBuffer)
+    const imageInfo = await ImageParser.load(qrBuffer);
 
     // CRITICAL: QR codes must NOT have interpolation (causes blurriness)
-    imageInfo.interpolate = false
+    imageInfo.interpolate = false;
 
     // Store image and get ID
-    const imageKey = `qr_${this.imageManager.getNextImageId()}`
-    const imageId = this.imageManager.registerImage(imageKey, imageInfo)
+    const imageKey = `qr_${this.imageManager.getNextImageId()}`;
+    const imageId = this.imageManager.registerImage(imageKey, imageInfo);
 
     // Calculate dimensions
-    const size = options.size || 100
+    const size = options.size || 100;
 
     // Draw QR code on page using image drawing
-    this.drawImage(`Im${imageId}`, options.x, options.y, size, size)
+    this.drawImage(`Im${imageId}`, options.x, options.y, size, size);
   }
 
   /**
@@ -2298,150 +2546,161 @@ export class PDFWriter {
    */
   private renderPageNumbers(): void {
     if (!this.pageNumberOptions || !this.pageNumberOptions.enabled) {
-      return
+      return;
     }
 
-    const options = this.pageNumberOptions
-    const totalPages = this.pages.length
-    const fontSize = options.fontSize || 10
-    const margin = options.margin || 30
-    const startAt = options.startAt || 1
-    const excludePages = options.excludePages || []
+    const options = this.pageNumberOptions;
+    const totalPages = this.pages.length;
+    const fontSize = options.fontSize || 10;
+    const margin = options.margin || 30;
+    const startAt = options.startAt || 1;
+    const excludePages = options.excludePages || [];
 
     // Parse color (default: black)
-    let r = 0, g = 0, b = 0
+    let r = 0,
+      g = 0,
+      b = 0;
     if (options.color) {
       if (options.color.startsWith('#')) {
-        const hex = options.color.replace('#', '')
-        r = parseInt(hex.substring(0, 2), 16) / 255
-        g = parseInt(hex.substring(2, 4), 16) / 255
-        b = parseInt(hex.substring(4, 6), 16) / 255
+        const hex = options.color.replace('#', '');
+        r = parseInt(hex.substring(0, 2), 16) / 255;
+        g = parseInt(hex.substring(2, 4), 16) / 255;
+        b = parseInt(hex.substring(4, 6), 16) / 255;
       }
     }
 
     // Save current page index
-    const originalPageIndex = this.currentPageIndex
+    const originalPageIndex = this.currentPageIndex;
 
     // Render page number on each page
     this.pages.forEach((pageData, pageIndex) => {
       // Skip if page is excluded
       if (excludePages.includes(pageIndex)) {
-        return
+        return;
       }
 
       // Skip if before startAt
       if (pageIndex + 1 < startAt) {
-        return
+        return;
       }
 
       // Switch to this page
-      this.currentPageIndex = pageIndex
+      this.currentPageIndex = pageIndex;
 
       // Calculate page number text
-      const currentPageNumber = pageIndex + 1
-      let pageText: string
+      const currentPageNumber = pageIndex + 1;
+      let pageText: string;
 
       if (typeof options.format === 'function') {
         // Custom format function
-        pageText = options.format(currentPageNumber, totalPages)
+        pageText = options.format(currentPageNumber, totalPages);
       } else if (typeof options.format === 'string') {
         // Template string with {current} and {total} placeholders
         pageText = options.format
           .replace('{current}', currentPageNumber.toString())
-          .replace('{total}', totalPages.toString())
+          .replace('{total}', totalPages.toString());
       } else {
         // Default format: "Page X of Y"
-        pageText = `Page ${currentPageNumber} of ${totalPages}`
+        pageText = `Page ${currentPageNumber} of ${totalPages}`;
       }
 
       // Calculate position
-      let x: number, y: number
+      let x: number, y: number;
 
-      const position = options.position || 'bottom-center'
+      const position = options.position || 'bottom-center';
 
       // Approximate text width (very rough estimation)
-      const charWidth = fontSize * 0.5
-      const textWidth = pageText.length * charWidth
+      const charWidth = fontSize * 0.5;
+      const textWidth = pageText.length * charWidth;
 
       switch (position) {
         case 'top-left':
-          x = margin
-          y = pageData.height - margin
-          break
+          x = margin;
+          y = pageData.height - margin;
+          break;
         case 'top-center':
-          x = (pageData.width - textWidth) / 2
-          y = pageData.height - margin
-          break
+          x = (pageData.width - textWidth) / 2;
+          y = pageData.height - margin;
+          break;
         case 'top-right':
-          x = pageData.width - textWidth - margin
-          y = pageData.height - margin
-          break
+          x = pageData.width - textWidth - margin;
+          y = pageData.height - margin;
+          break;
         case 'bottom-left':
-          x = margin
-          y = margin
-          break
+          x = margin;
+          y = margin;
+          break;
         case 'bottom-center':
-          x = (pageData.width - textWidth) / 2
-          y = margin
-          break
+          x = (pageData.width - textWidth) / 2;
+          y = margin;
+          break;
         case 'bottom-right':
-          x = pageData.width - textWidth - margin
-          y = margin
-          break
+          x = pageData.width - textWidth - margin;
+          y = margin;
+          break;
       }
 
       // Add page number text
-      const escapedPageText = this.escapePDFString(pageText)
-      const pageNumberFontId = this.getFontId('Helvetica')  // Page numbers use Helvetica
-      this.addContent('BT')
-      this.addContent(`${r} ${g} ${b} rg`)  // Set text color
-      this.addContent(`/${pageNumberFontId} ${fontSize} Tf`)
-      this.addContent(`${x} ${y} Td`)
-      this.addContent(`(${escapedPageText}) Tj`)
-      this.addContent('ET')
-    })
+      const escapedPageText = this.escapePDFString(pageText);
+      const pageNumberFontId = this.getFontId('Helvetica'); // Page numbers use Helvetica
+      this.addContent('BT');
+      this.addContent(`${r} ${g} ${b} rg`); // Set text color
+      this.addContent(`/${pageNumberFontId} ${fontSize} Tf`);
+      this.addContent(`${x} ${y} Td`);
+      this.addContent(`(${escapedPageText}) Tj`);
+      this.addContent('ET');
+    });
 
     // Restore original page index
-    this.currentPageIndex = originalPageIndex
+    this.currentPageIndex = originalPageIndex;
   }
 
   /**
    * Check if header/footer should be rendered on a specific page
    */
-  private shouldRenderOnPage(pageIndex: number, totalPages: number, pageRule?: PageRule, excludePages?: number[]): boolean {
+  private shouldRenderOnPage(
+    pageIndex: number,
+    totalPages: number,
+    pageRule?: PageRule,
+    excludePages?: number[]
+  ): boolean {
     // Check if page is excluded
     if (excludePages && excludePages.includes(pageIndex)) {
-      return false
+      return false;
     }
 
     // Check page rule
-    const rule = pageRule || 'all'
-    const pageNumber = pageIndex + 1  // 1-indexed page number
+    const rule = pageRule || 'all';
+    const pageNumber = pageIndex + 1; // 1-indexed page number
 
     switch (rule) {
       case 'all':
-        return true
+        return true;
       case 'first':
-        return pageNumber === 1
+        return pageNumber === 1;
       case 'notFirst':
-        return pageNumber !== 1
+        return pageNumber !== 1;
       case 'odd':
-        return pageNumber % 2 === 1
+        return pageNumber % 2 === 1;
       case 'even':
-        return pageNumber % 2 === 0
+        return pageNumber % 2 === 0;
       default:
-        return true
+        return true;
     }
   }
 
   /**
    * Evaluate header/footer content (string or function)
    */
-  private evaluateContent(content: HeaderFooterContent, pageNumber: number, totalPages: number): string {
+  private evaluateContent(
+    content: HeaderFooterContent,
+    pageNumber: number,
+    totalPages: number
+  ): string {
     if (typeof content === 'function') {
-      return content(pageNumber, totalPages)
+      return content(pageNumber, totalPages);
     }
-    return content
+    return content;
   }
 
   /**
@@ -2449,136 +2708,142 @@ export class PDFWriter {
    */
   private renderHeaders(): void {
     if (!this.headerFooterOptions?.header?.enabled) {
-      return
+      return;
     }
 
-    const header = this.headerFooterOptions.header
-    const totalPages = this.pages.length
-    const originalPageIndex = this.currentPageIndex
+    const header = this.headerFooterOptions.header;
+    const totalPages = this.pages.length;
+    const originalPageIndex = this.currentPageIndex;
 
     // Default values
-    const margin = header.margin || 30
-    const fontSize = header.fontSize || 10
-    const font = header.font || 'Helvetica'
-    const fontId = this.getFontId(font)
+    const margin = header.margin || 30;
+    const fontSize = header.fontSize || 10;
+    const font = header.font || 'Helvetica';
+    const fontId = this.getFontId(font);
 
     // Parse color (default: black)
-    let r = 0, g = 0, b = 0
+    let r = 0,
+      g = 0,
+      b = 0;
     if (header.color) {
-      ;[r, g, b] = this.parseColor(header.color)
+      [r, g, b] = this.parseColor(header.color);
     }
 
     // Render header on each page
     this.pages.forEach((pageData, pageIndex) => {
       if (!this.shouldRenderOnPage(pageIndex, totalPages, header.pages, header.excludePages)) {
-        return
+        return;
       }
 
       // Switch to this page
-      this.currentPageIndex = pageIndex
-      const pageNumber = pageIndex + 1
-      const y = pageData.height - margin
+      this.currentPageIndex = pageIndex;
+      const pageNumber = pageIndex + 1;
+      const y = pageData.height - margin;
 
       // Render left, center, right text
       if (header.left) {
-        const text = this.evaluateContent(header.left, pageNumber, totalPages)
-        const escapedText = this.escapePDFString(text)
-        this.addContent('BT')
-        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${margin} ${y} Td`)
-        this.addContent(`(${escapedText}) Tj`)
-        this.addContent('ET')
+        const text = this.evaluateContent(header.left, pageNumber, totalPages);
+        const escapedText = this.escapePDFString(text);
+        this.addContent('BT');
+        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${margin} ${y} Td`);
+        this.addContent(`(${escapedText}) Tj`);
+        this.addContent('ET');
       }
 
       if (header.center) {
-        const text = this.evaluateContent(header.center, pageNumber, totalPages)
-        const escapedText = this.escapePDFString(text)
-        const charWidth = fontSize * 0.5
-        const textWidth = text.length * charWidth
-        const x = (pageData.width - textWidth) / 2
-        this.addContent('BT')
-        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${x.toFixed(2)} ${y} Td`)
-        this.addContent(`(${escapedText}) Tj`)
-        this.addContent('ET')
+        const text = this.evaluateContent(header.center, pageNumber, totalPages);
+        const escapedText = this.escapePDFString(text);
+        const charWidth = fontSize * 0.5;
+        const textWidth = text.length * charWidth;
+        const x = (pageData.width - textWidth) / 2;
+        this.addContent('BT');
+        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${x.toFixed(2)} ${y} Td`);
+        this.addContent(`(${escapedText}) Tj`);
+        this.addContent('ET');
       }
 
       if (header.right) {
-        const text = this.evaluateContent(header.right, pageNumber, totalPages)
-        const escapedText = this.escapePDFString(text)
-        const charWidth = fontSize * 0.5
-        const textWidth = text.length * charWidth
-        const x = pageData.width - textWidth - margin
-        this.addContent('BT')
-        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${x.toFixed(2)} ${y} Td`)
-        this.addContent(`(${escapedText}) Tj`)
-        this.addContent('ET')
+        const text = this.evaluateContent(header.right, pageNumber, totalPages);
+        const escapedText = this.escapePDFString(text);
+        const charWidth = fontSize * 0.5;
+        const textWidth = text.length * charWidth;
+        const x = pageData.width - textWidth - margin;
+        this.addContent('BT');
+        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${x.toFixed(2)} ${y} Td`);
+        this.addContent(`(${escapedText}) Tj`);
+        this.addContent('ET');
       }
 
       // Render advanced text items
       if (header.text) {
-        header.text.forEach(textItem => {
-          const text = this.evaluateContent(textItem.content, pageNumber, totalPages)
-          const escapedText = this.escapePDFString(text)
-          const itemFontSize = textItem.fontSize || fontSize
-          const itemFont = textItem.font || font
-          const itemFontId = this.getFontId(itemFont)
+        header.text.forEach((textItem) => {
+          const text = this.evaluateContent(textItem.content, pageNumber, totalPages);
+          const escapedText = this.escapePDFString(text);
+          const itemFontSize = textItem.fontSize || fontSize;
+          const itemFont = textItem.font || font;
+          const itemFontId = this.getFontId(itemFont);
 
           // Parse item color
-          let ir = r, ig = g, ib = b
+          let ir = r,
+            ig = g,
+            ib = b;
           if (textItem.color) {
-            ;[ir, ig, ib] = this.parseColor(textItem.color)
+            [ir, ig, ib] = this.parseColor(textItem.color);
           }
 
-          const charWidth = itemFontSize * 0.5
-          const textWidth = text.length * charWidth
-          let x: number
+          const charWidth = itemFontSize * 0.5;
+          const textWidth = text.length * charWidth;
+          let x: number;
 
-          const align = textItem.align || 'left'
+          const align = textItem.align || 'left';
           switch (align) {
             case 'left':
-              x = margin
-              break
+              x = margin;
+              break;
             case 'center':
-              x = (pageData.width - textWidth) / 2
-              break
+              x = (pageData.width - textWidth) / 2;
+              break;
             case 'right':
-              x = pageData.width - textWidth - margin
-              break
+              x = pageData.width - textWidth - margin;
+              break;
           }
 
-          this.addContent('BT')
-          this.addContent(`${ir.toFixed(4)} ${ig.toFixed(4)} ${ib.toFixed(4)} rg`)
-          this.addContent(`/${itemFontId} ${itemFontSize} Tf`)
-          this.addContent(`${x.toFixed(2)} ${y} Td`)
-          this.addContent(`(${escapedText}) Tj`)
-          this.addContent('ET')
-        })
+          this.addContent('BT');
+          this.addContent(`${ir.toFixed(4)} ${ig.toFixed(4)} ${ib.toFixed(4)} rg`);
+          this.addContent(`/${itemFontId} ${itemFontSize} Tf`);
+          this.addContent(`${x.toFixed(2)} ${y} Td`);
+          this.addContent(`(${escapedText}) Tj`);
+          this.addContent('ET');
+        });
       }
 
       // Draw line below header if requested
       if (header.line) {
-        const lineY = y - (fontSize + 5)
-        const lineWidth = header.lineWidth || 0.5
-        let lr = 0, lg = 0, lb = 0
+        const lineY = y - (fontSize + 5);
+        const lineWidth = header.lineWidth || 0.5;
+        let lr = 0,
+          lg = 0,
+          lb = 0;
         if (header.lineColor) {
-          ;[lr, lg, lb] = this.parseColor(header.lineColor)
+          [lr, lg, lb] = this.parseColor(header.lineColor);
         }
 
-        this.addContent(`${lineWidth} w`)
-        this.addContent(`${lr.toFixed(4)} ${lg.toFixed(4)} ${lb.toFixed(4)} RG`)
-        this.addContent(`${margin} ${lineY.toFixed(2)} m`)
-        this.addContent(`${(pageData.width - margin).toFixed(2)} ${lineY.toFixed(2)} l`)
-        this.addContent('S')
+        this.addContent(`${lineWidth} w`);
+        this.addContent(`${lr.toFixed(4)} ${lg.toFixed(4)} ${lb.toFixed(4)} RG`);
+        this.addContent(`${margin} ${lineY.toFixed(2)} m`);
+        this.addContent(`${(pageData.width - margin).toFixed(2)} ${lineY.toFixed(2)} l`);
+        this.addContent('S');
       }
-    })
+    });
 
     // Restore original page index
-    this.currentPageIndex = originalPageIndex
+    this.currentPageIndex = originalPageIndex;
   }
 
   /**
@@ -2586,136 +2851,142 @@ export class PDFWriter {
    */
   private renderFooters(): void {
     if (!this.headerFooterOptions?.footer?.enabled) {
-      return
+      return;
     }
 
-    const footer = this.headerFooterOptions.footer
-    const totalPages = this.pages.length
-    const originalPageIndex = this.currentPageIndex
+    const footer = this.headerFooterOptions.footer;
+    const totalPages = this.pages.length;
+    const originalPageIndex = this.currentPageIndex;
 
     // Default values
-    const margin = footer.margin || 30
-    const fontSize = footer.fontSize || 10
-    const font = footer.font || 'Helvetica'
-    const fontId = this.getFontId(font)
+    const margin = footer.margin || 30;
+    const fontSize = footer.fontSize || 10;
+    const font = footer.font || 'Helvetica';
+    const fontId = this.getFontId(font);
 
     // Parse color (default: black)
-    let r = 0, g = 0, b = 0
+    let r = 0,
+      g = 0,
+      b = 0;
     if (footer.color) {
-      ;[r, g, b] = this.parseColor(footer.color)
+      [r, g, b] = this.parseColor(footer.color);
     }
 
     // Render footer on each page
     this.pages.forEach((pageData, pageIndex) => {
       if (!this.shouldRenderOnPage(pageIndex, totalPages, footer.pages, footer.excludePages)) {
-        return
+        return;
       }
 
       // Switch to this page
-      this.currentPageIndex = pageIndex
-      const pageNumber = pageIndex + 1
-      const y = margin
+      this.currentPageIndex = pageIndex;
+      const pageNumber = pageIndex + 1;
+      const y = margin;
 
       // Render left, center, right text
       if (footer.left) {
-        const text = this.evaluateContent(footer.left, pageNumber, totalPages)
-        const escapedText = this.escapePDFString(text)
-        this.addContent('BT')
-        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${margin} ${y} Td`)
-        this.addContent(`(${escapedText}) Tj`)
-        this.addContent('ET')
+        const text = this.evaluateContent(footer.left, pageNumber, totalPages);
+        const escapedText = this.escapePDFString(text);
+        this.addContent('BT');
+        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${margin} ${y} Td`);
+        this.addContent(`(${escapedText}) Tj`);
+        this.addContent('ET');
       }
 
       if (footer.center) {
-        const text = this.evaluateContent(footer.center, pageNumber, totalPages)
-        const escapedText = this.escapePDFString(text)
-        const charWidth = fontSize * 0.5
-        const textWidth = text.length * charWidth
-        const x = (pageData.width - textWidth) / 2
-        this.addContent('BT')
-        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${x.toFixed(2)} ${y} Td`)
-        this.addContent(`(${escapedText}) Tj`)
-        this.addContent('ET')
+        const text = this.evaluateContent(footer.center, pageNumber, totalPages);
+        const escapedText = this.escapePDFString(text);
+        const charWidth = fontSize * 0.5;
+        const textWidth = text.length * charWidth;
+        const x = (pageData.width - textWidth) / 2;
+        this.addContent('BT');
+        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${x.toFixed(2)} ${y} Td`);
+        this.addContent(`(${escapedText}) Tj`);
+        this.addContent('ET');
       }
 
       if (footer.right) {
-        const text = this.evaluateContent(footer.right, pageNumber, totalPages)
-        const escapedText = this.escapePDFString(text)
-        const charWidth = fontSize * 0.5
-        const textWidth = text.length * charWidth
-        const x = pageData.width - textWidth - margin
-        this.addContent('BT')
-        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-        this.addContent(`/${fontId} ${fontSize} Tf`)
-        this.addContent(`${x.toFixed(2)} ${y} Td`)
-        this.addContent(`(${escapedText}) Tj`)
-        this.addContent('ET')
+        const text = this.evaluateContent(footer.right, pageNumber, totalPages);
+        const escapedText = this.escapePDFString(text);
+        const charWidth = fontSize * 0.5;
+        const textWidth = text.length * charWidth;
+        const x = pageData.width - textWidth - margin;
+        this.addContent('BT');
+        this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+        this.addContent(`/${fontId} ${fontSize} Tf`);
+        this.addContent(`${x.toFixed(2)} ${y} Td`);
+        this.addContent(`(${escapedText}) Tj`);
+        this.addContent('ET');
       }
 
       // Render advanced text items
       if (footer.text) {
-        footer.text.forEach(textItem => {
-          const text = this.evaluateContent(textItem.content, pageNumber, totalPages)
-          const escapedText = this.escapePDFString(text)
-          const itemFontSize = textItem.fontSize || fontSize
-          const itemFont = textItem.font || font
-          const itemFontId = this.getFontId(itemFont)
+        footer.text.forEach((textItem) => {
+          const text = this.evaluateContent(textItem.content, pageNumber, totalPages);
+          const escapedText = this.escapePDFString(text);
+          const itemFontSize = textItem.fontSize || fontSize;
+          const itemFont = textItem.font || font;
+          const itemFontId = this.getFontId(itemFont);
 
           // Parse item color
-          let ir = r, ig = g, ib = b
+          let ir = r,
+            ig = g,
+            ib = b;
           if (textItem.color) {
-            ;[ir, ig, ib] = this.parseColor(textItem.color)
+            [ir, ig, ib] = this.parseColor(textItem.color);
           }
 
-          const charWidth = itemFontSize * 0.5
-          const textWidth = text.length * charWidth
-          let x: number
+          const charWidth = itemFontSize * 0.5;
+          const textWidth = text.length * charWidth;
+          let x: number;
 
-          const align = textItem.align || 'left'
+          const align = textItem.align || 'left';
           switch (align) {
             case 'left':
-              x = margin
-              break
+              x = margin;
+              break;
             case 'center':
-              x = (pageData.width - textWidth) / 2
-              break
+              x = (pageData.width - textWidth) / 2;
+              break;
             case 'right':
-              x = pageData.width - textWidth - margin
-              break
+              x = pageData.width - textWidth - margin;
+              break;
           }
 
-          this.addContent('BT')
-          this.addContent(`${ir.toFixed(4)} ${ig.toFixed(4)} ${ib.toFixed(4)} rg`)
-          this.addContent(`/${itemFontId} ${itemFontSize} Tf`)
-          this.addContent(`${x.toFixed(2)} ${y} Td`)
-          this.addContent(`(${escapedText}) Tj`)
-          this.addContent('ET')
-        })
+          this.addContent('BT');
+          this.addContent(`${ir.toFixed(4)} ${ig.toFixed(4)} ${ib.toFixed(4)} rg`);
+          this.addContent(`/${itemFontId} ${itemFontSize} Tf`);
+          this.addContent(`${x.toFixed(2)} ${y} Td`);
+          this.addContent(`(${escapedText}) Tj`);
+          this.addContent('ET');
+        });
       }
 
       // Draw line above footer if requested
       if (footer.line) {
-        const lineY = y + fontSize + 5
-        const lineWidth = footer.lineWidth || 0.5
-        let lr = 0, lg = 0, lb = 0
+        const lineY = y + fontSize + 5;
+        const lineWidth = footer.lineWidth || 0.5;
+        let lr = 0,
+          lg = 0,
+          lb = 0;
         if (footer.lineColor) {
-          ;[lr, lg, lb] = this.parseColor(footer.lineColor)
+          [lr, lg, lb] = this.parseColor(footer.lineColor);
         }
 
-        this.addContent(`${lineWidth} w`)
-        this.addContent(`${lr.toFixed(4)} ${lg.toFixed(4)} ${lb.toFixed(4)} RG`)
-        this.addContent(`${margin} ${lineY.toFixed(2)} m`)
-        this.addContent(`${(pageData.width - margin).toFixed(2)} ${lineY.toFixed(2)} l`)
-        this.addContent('S')
+        this.addContent(`${lineWidth} w`);
+        this.addContent(`${lr.toFixed(4)} ${lg.toFixed(4)} ${lb.toFixed(4)} RG`);
+        this.addContent(`${margin} ${lineY.toFixed(2)} m`);
+        this.addContent(`${(pageData.width - margin).toFixed(2)} ${lineY.toFixed(2)} l`);
+        this.addContent('S');
       }
-    })
+    });
 
     // Restore original page index
-    this.currentPageIndex = originalPageIndex
+    this.currentPageIndex = originalPageIndex;
   }
 
   /**
@@ -2723,215 +2994,226 @@ export class PDFWriter {
    */
   private async renderWatermarks(): Promise<void> {
     if (this.watermarkManager.getWatermarkCount() === 0) {
-      return
+      return;
     }
 
-    const originalPageIndex = this.currentPageIndex
-    const allWatermarks = this.watermarkManager.getAllWatermarks()
+    const originalPageIndex = this.currentPageIndex;
+    const allWatermarks = this.watermarkManager.getAllWatermarks();
 
     for (const watermark of allWatermarks) {
       // Determine which pages to apply watermark
-      const pages = watermark.pages || 'all'
-      const targetPages = pages === 'all'
-        ? Array.from({ length: this.pages.length }, (_, i) => i)
-        : pages
+      const pages = watermark.pages || 'all';
+      const targetPages =
+        pages === 'all' ? Array.from({ length: this.pages.length }, (_, i) => i) : pages;
 
       // Defaults
-      const opacity = watermark.opacity !== undefined ? watermark.opacity : 0.3
-      const rotation = watermark.rotation || 0
-      const position = watermark.position || 'center'
-      const layer = watermark.layer || 'background'
+      const opacity = watermark.opacity !== undefined ? watermark.opacity : 0.3;
+      const rotation = watermark.rotation || 0;
+      const position = watermark.position || 'center';
+      const layer = watermark.layer || 'background';
 
       for (const pageIndex of targetPages) {
         if (pageIndex < 0 || pageIndex >= this.pages.length) {
-          return // Skip invalid page indices
+          continue; // Skip invalid page indices
         }
 
-        this.currentPageIndex = pageIndex
-        const pageData = this.pages[pageIndex]
-        const pageWidth = pageData.width
-        const pageHeight = pageData.height
+        this.currentPageIndex = pageIndex;
+        const pageData = this.pages[pageIndex];
+        const pageWidth = pageData.width;
+        const pageHeight = pageData.height;
 
         if (watermark.type === 'text') {
           // Text watermark
-          const text = watermark.text
-          const fontSize = watermark.fontSize || 48
-          const font = watermark.font || 'Helvetica-Bold'
-          const fontId = this.getFontId(font)
+          const text = watermark.text;
+          const fontSize = watermark.fontSize || 48;
+          const font = watermark.font || 'Helvetica-Bold';
+          const fontId = this.getFontId(font);
 
           // Parse color (default: gray)
-          const color = watermark.color || [0.5, 0.5, 0.5]
-          const [r, g, b] = Array.isArray(color) ? color : this.parseColor(color)
+          const color = watermark.color || [0.5, 0.5, 0.5];
+          const [r, g, b] = Array.isArray(color) ? color : this.parseColor(color);
 
           // Calculate text dimensions (approximate)
-          const charWidth = fontSize * 0.6
-          const textWidth = text.length * charWidth
+          const charWidth = fontSize * 0.6;
+          const textWidth = text.length * charWidth;
 
           // Calculate position
-          let x: number, y: number
+          let x: number, y: number;
 
           if (position === 'custom' && watermark.x !== undefined && watermark.y !== undefined) {
-            x = watermark.x
-            y = watermark.y
+            x = watermark.x;
+            y = watermark.y;
           } else {
-            const coords = this.calculateWatermarkPosition(position, pageWidth, pageHeight, textWidth, fontSize)
-            x = coords.x
-            y = coords.y
+            const coords = this.calculateWatermarkPosition(
+              position,
+              pageWidth,
+              pageHeight,
+              textWidth,
+              fontSize
+            );
+            x = coords.x;
+            y = coords.y;
           }
 
           // Save graphics state
           if (layer === 'background') {
             // Insert watermark at the beginning of page content
-            pageData.content.unshift('q')
+            pageData.content.unshift('q');
           } else {
-            this.addContent('q')
+            this.addContent('q');
           }
 
           // Build watermark commands
-          const commands: string[] = []
+          const commands: string[] = [];
 
           // Set transparency
-          commands.push(`/GS1 gs`) // We'll need to add ExtGState for opacity
+          commands.push(`/GS1 gs`); // We'll need to add ExtGState for opacity
 
           // Set color
-          commands.push(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
+          commands.push(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
 
           // Rotation and positioning
           if (rotation !== 0 || position === 'diagonal') {
-            const angle = position === 'diagonal' ? 45 : rotation
-            const rad = (angle * Math.PI) / 180
-            const cos = Math.cos(rad).toFixed(4)
-            const sin = Math.sin(rad).toFixed(4)
+            const angle = position === 'diagonal' ? 45 : rotation;
+            const rad = (angle * Math.PI) / 180;
+            const cos = Math.cos(rad).toFixed(4);
+            const sin = Math.sin(rad).toFixed(4);
 
             // For diagonal, center the rotated text
             if (position === 'diagonal') {
-              x = pageWidth / 2
-              y = pageHeight / 2
+              x = pageWidth / 2;
+              y = pageHeight / 2;
             }
 
             // Apply transformation matrix for rotation
-            commands.push(`${cos} ${sin} ${-sin} ${cos} ${x.toFixed(2)} ${y.toFixed(2)} cm`)
-            commands.push('BT')
-            commands.push(`/${fontId} ${fontSize} Tf`)
-            commands.push(`0 0 Td`)
-            commands.push(`(${this.escapePDFString(text)}) Tj`)
-            commands.push('ET')
+            commands.push(`${cos} ${sin} ${-sin} ${cos} ${x.toFixed(2)} ${y.toFixed(2)} cm`);
+            commands.push('BT');
+            commands.push(`/${fontId} ${fontSize} Tf`);
+            commands.push(`0 0 Td`);
+            commands.push(`(${this.escapePDFString(text)}) Tj`);
+            commands.push('ET');
           } else {
-            commands.push('BT')
-            commands.push(`/${fontId} ${fontSize} Tf`)
-            commands.push(`${x.toFixed(2)} ${y.toFixed(2)} Td`)
-            commands.push(`(${this.escapePDFString(text)}) Tj`)
-            commands.push('ET')
+            commands.push('BT');
+            commands.push(`/${fontId} ${fontSize} Tf`);
+            commands.push(`${x.toFixed(2)} ${y.toFixed(2)} Td`);
+            commands.push(`(${this.escapePDFString(text)}) Tj`);
+            commands.push('ET');
           }
 
           // Restore graphics state
-          commands.push('Q')
+          commands.push('Q');
 
           if (layer === 'background') {
             // Insert at beginning (after the 'q')
-            pageData.content.splice(1, 0, ...commands)
+            pageData.content.splice(1, 0, ...commands);
           } else {
-            commands.forEach(cmd => this.addContent(cmd))
+            commands.forEach((cmd) => this.addContent(cmd));
           }
-
         } else if (watermark.type === 'image') {
           // Image watermark
-          const imageKey = typeof watermark.source === 'string'
-            ? watermark.source
-            : watermark.source.toString('base64')
+          const imageKey =
+            typeof watermark.source === 'string'
+              ? watermark.source
+              : watermark.source.toString('base64');
 
           // Load image if not already loaded
           if (!this.imageManager.hasImage(imageKey)) {
             try {
-              const imageInfo = await ImageParser.load(watermark.source)
-              this.imageManager.registerImage(imageKey, imageInfo)
+              const imageInfo = await ImageParser.load(watermark.source);
+              this.imageManager.registerImage(imageKey, imageInfo);
             } catch (error) {
-              logger.error(
-                'Failed to load watermark image',
-                'PDFWriter',
-                { error: error instanceof Error ? error.message : 'Unknown error' }
-              )
-              return
+              throw new PDFGenerationError(
+                `Failed to load watermark image: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                error instanceof Error ? error : undefined
+              );
             }
           }
 
-          const imageData = this.imageManager.getImage(imageKey)!
-          const imageInfo = imageData.info
+          const imageData = this.imageManager.getImage(imageKey)!;
+          const imageInfo = imageData.info;
 
           // Calculate dimensions
-          let width = watermark.width
-          let height = watermark.height
-          const scale = watermark.scale || 1
+          let width = watermark.width;
+          let height = watermark.height;
+          const scale = watermark.scale || 1;
 
           if (!width && !height) {
-            width = imageInfo.width * scale
-            height = imageInfo.height * scale
+            width = imageInfo.width * scale;
+            height = imageInfo.height * scale;
           } else if (width && !height) {
-            height = (width / imageInfo.width) * imageInfo.height
+            height = (width / imageInfo.width) * imageInfo.height;
           } else if (!width && height) {
-            width = (height / imageInfo.height) * imageInfo.width
+            width = (height / imageInfo.height) * imageInfo.width;
           }
 
-          width = width! * scale
-          height = height! * scale
+          width = width! * scale;
+          height = height! * scale;
 
           // Calculate position
-          let x: number, y: number
+          let x: number, y: number;
 
           if (position === 'custom' && watermark.x !== undefined && watermark.y !== undefined) {
-            x = watermark.x
-            y = watermark.y
+            x = watermark.x;
+            y = watermark.y;
           } else {
-            const coords = this.calculateWatermarkPosition(position, pageWidth, pageHeight, width, height)
-            x = coords.x
-            y = coords.y
+            const coords = this.calculateWatermarkPosition(
+              position,
+              pageWidth,
+              pageHeight,
+              width,
+              height
+            );
+            x = coords.x;
+            y = coords.y;
           }
 
           // Save graphics state
           if (layer === 'background') {
-            pageData.content.unshift('q')
+            pageData.content.unshift('q');
           } else {
-            this.addContent('q')
+            this.addContent('q');
           }
 
-          const commands: string[] = []
+          const commands: string[] = [];
 
           // Set transparency (we'll add opacity support in ExtGState)
-          commands.push(`/GS1 gs`)
+          commands.push(`/GS1 gs`);
 
           // Position and scale image
           if (rotation !== 0 || position === 'diagonal') {
-            const angle = position === 'diagonal' ? 45 : rotation
-            const rad = (angle * Math.PI) / 180
-            const cos = Math.cos(rad).toFixed(4)
-            const sin = Math.sin(rad).toFixed(4)
+            const angle = position === 'diagonal' ? 45 : rotation;
+            const rad = (angle * Math.PI) / 180;
+            const cos = Math.cos(rad).toFixed(4);
+            const sin = Math.sin(rad).toFixed(4);
 
             if (position === 'diagonal') {
-              x = pageWidth / 2 - width / 2
-              y = pageHeight / 2 - height / 2
+              x = pageWidth / 2 - width / 2;
+              y = pageHeight / 2 - height / 2;
             }
 
             // Apply transformation
-            commands.push(`${cos} ${sin} ${-sin} ${cos} ${x.toFixed(2)} ${y.toFixed(2)} cm`)
-            commands.push(`${width.toFixed(2)} 0 0 ${height.toFixed(2)} 0 0 cm`)
+            commands.push(`${cos} ${sin} ${-sin} ${cos} ${x.toFixed(2)} ${y.toFixed(2)} cm`);
+            commands.push(`${width.toFixed(2)} 0 0 ${height.toFixed(2)} 0 0 cm`);
           } else {
-            commands.push(`${width.toFixed(2)} 0 0 ${height.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm`)
+            commands.push(
+              `${width.toFixed(2)} 0 0 ${height.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm`
+            );
           }
 
-          commands.push(`/Im${imageData.id} Do`)
-          commands.push('Q')
+          commands.push(`/Im${imageData.id} Do`);
+          commands.push('Q');
 
           if (layer === 'background') {
-            pageData.content.splice(1, 0, ...commands)
+            pageData.content.splice(1, 0, ...commands);
           } else {
-            commands.forEach(cmd => this.addContent(cmd))
+            commands.forEach((cmd) => this.addContent(cmd));
           }
         }
       }
     }
 
     // Restore original page index
-    this.currentPageIndex = originalPageIndex
+    this.currentPageIndex = originalPageIndex;
   }
 
   /**
@@ -2944,40 +3226,40 @@ export class PDFWriter {
     contentWidth: number,
     contentHeight: number
   ): { x: number; y: number } {
-    const margin = 50
+    const margin = 50;
 
     switch (position) {
       case 'center':
         return {
           x: (pageWidth - contentWidth) / 2,
-          y: (pageHeight - contentHeight) / 2
-        }
+          y: (pageHeight - contentHeight) / 2,
+        };
       case 'top-left':
-        return { x: margin, y: pageHeight - contentHeight - margin }
+        return { x: margin, y: pageHeight - contentHeight - margin };
       case 'top-center':
-        return { x: (pageWidth - contentWidth) / 2, y: pageHeight - contentHeight - margin }
+        return { x: (pageWidth - contentWidth) / 2, y: pageHeight - contentHeight - margin };
       case 'top-right':
-        return { x: pageWidth - contentWidth - margin, y: pageHeight - contentHeight - margin }
+        return { x: pageWidth - contentWidth - margin, y: pageHeight - contentHeight - margin };
       case 'middle-left':
-        return { x: margin, y: (pageHeight - contentHeight) / 2 }
+        return { x: margin, y: (pageHeight - contentHeight) / 2 };
       case 'middle-right':
-        return { x: pageWidth - contentWidth - margin, y: (pageHeight - contentHeight) / 2 }
+        return { x: pageWidth - contentWidth - margin, y: (pageHeight - contentHeight) / 2 };
       case 'bottom-left':
-        return { x: margin, y: margin }
+        return { x: margin, y: margin };
       case 'bottom-center':
-        return { x: (pageWidth - contentWidth) / 2, y: margin }
+        return { x: (pageWidth - contentWidth) / 2, y: margin };
       case 'bottom-right':
-        return { x: pageWidth - contentWidth - margin, y: margin }
+        return { x: pageWidth - contentWidth - margin, y: margin };
       case 'diagonal':
         return {
           x: (pageWidth - contentWidth) / 2,
-          y: (pageHeight - contentHeight) / 2
-        }
+          y: (pageHeight - contentHeight) / 2,
+        };
       default:
         return {
           x: (pageWidth - contentWidth) / 2,
-          y: (pageHeight - contentHeight) / 2
-        }
+          y: (pageHeight - contentHeight) / 2,
+        };
     }
   }
 
@@ -2991,26 +3273,26 @@ export class PDFWriter {
   private parseColor(color: Color): [number, number, number] {
     if (typeof color === 'string') {
       // Parse hex color (e.g., '#FF0000' or 'FF0000')
-      const hex = color.replace('#', '')
-      const r = parseInt(hex.substring(0, 2), 16) / 255
-      const g = parseInt(hex.substring(2, 4), 16) / 255
-      const b = parseInt(hex.substring(4, 6), 16) / 255
-      return [r, g, b]
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16) / 255;
+      const g = parseInt(hex.substring(2, 4), 16) / 255;
+      const b = parseInt(hex.substring(4, 6), 16) / 255;
+      return [r, g, b];
     }
-    return color
+    return color;
   }
 
   /**
    * Create a hash key for a gradient (for caching)
    */
   private hashGradient(gradient: Gradient): string {
-    const isLinear = 'x0' in gradient && 'x1' in gradient
+    const isLinear = 'x0' in gradient && 'x1' in gradient;
     if (isLinear) {
-      const g = gradient as LinearGradientOptions
-      return `L_${g.x0}_${g.y0}_${g.x1}_${g.y1}_${JSON.stringify(g.colorStops)}`
+      const g = gradient as LinearGradientOptions;
+      return `L_${g.x0}_${g.y0}_${g.x1}_${g.y1}_${JSON.stringify(g.colorStops)}`;
     } else {
-      const g = gradient as RadialGradientOptions
-      return `R_${g.x0}_${g.y0}_${g.r0}_${g.x1}_${g.y1}_${g.r1}_${JSON.stringify(g.colorStops)}`
+      const g = gradient as RadialGradientOptions;
+      return `R_${g.x0}_${g.y0}_${g.r0}_${g.x1}_${g.y1}_${g.r1}_${JSON.stringify(g.colorStops)}`;
     }
   }
 
@@ -3018,15 +3300,15 @@ export class PDFWriter {
    * Register a gradient and get its pattern name
    */
   private registerGradient(gradient: Gradient): string {
-    const hash = this.hashGradient(gradient)
+    const hash = this.hashGradient(gradient);
 
     if (this.gradientManager.hasGradient(hash)) {
-      const id = this.gradientManager.getGradient(hash)!.id
-      return `P${id}`
+      const id = this.gradientManager.getGradient(hash)!.id;
+      return `P${id}`;
     }
 
-    const id = this.gradientManager.registerGradient(hash, gradient)
-    return `P${id}`
+    const id = this.gradientManager.registerGradient(hash, gradient);
+    return `P${id}`;
   }
 
   /**
@@ -3041,54 +3323,54 @@ export class PDFWriter {
   ): void {
     // Set dash pattern if provided
     if (dashPattern && dashPattern.length > 0) {
-      const pattern = dashPattern.join(' ')
-      this.addContent(`[${pattern}] 0 d`)
+      const pattern = dashPattern.join(' ');
+      this.addContent(`[${pattern}] 0 d`);
     }
 
     // Set stroke width
     if (strokeWidth !== undefined && strokeColor) {
-      this.setLineWidth(strokeWidth)
+      this.setLineWidth(strokeWidth);
     }
 
     // Handle gradient fill
     if (fillGradient) {
-      const patternName = this.registerGradient(fillGradient)
+      const patternName = this.registerGradient(fillGradient);
 
       // Set pattern color space and apply pattern
-      this.addContent('/Pattern cs')
-      this.addContent(`/${patternName} scn`)
+      this.addContent('/Pattern cs');
+      this.addContent(`/${patternName} scn`);
 
       if (strokeColor) {
         // Fill with gradient and stroke
-        const [sr, sg, sb] = this.parseColor(strokeColor)
-        this.addContent(`${sr.toFixed(4)} ${sg.toFixed(4)} ${sb.toFixed(4)} RG`)
-        this.addContent('B')  // Fill and stroke
+        const [sr, sg, sb] = this.parseColor(strokeColor);
+        this.addContent(`${sr.toFixed(4)} ${sg.toFixed(4)} ${sb.toFixed(4)} RG`);
+        this.addContent('B'); // Fill and stroke
       } else {
         // Fill with gradient only
-        this.addContent('f')  // Fill
+        this.addContent('f'); // Fill
       }
     } else if (fillColor && strokeColor) {
       // Both fill and stroke (solid colors)
-      const [fr, fg, fb] = this.parseColor(fillColor)
-      const [sr, sg, sb] = this.parseColor(strokeColor)
-      this.addContent(`${fr.toFixed(4)} ${fg.toFixed(4)} ${fb.toFixed(4)} rg`)  // Fill color
-      this.addContent(`${sr.toFixed(4)} ${sg.toFixed(4)} ${sb.toFixed(4)} RG`)  // Stroke color
-      this.addContent('B')  // Fill and stroke
+      const [fr, fg, fb] = this.parseColor(fillColor);
+      const [sr, sg, sb] = this.parseColor(strokeColor);
+      this.addContent(`${fr.toFixed(4)} ${fg.toFixed(4)} ${fb.toFixed(4)} rg`); // Fill color
+      this.addContent(`${sr.toFixed(4)} ${sg.toFixed(4)} ${sb.toFixed(4)} RG`); // Stroke color
+      this.addContent('B'); // Fill and stroke
     } else if (fillColor) {
       // Fill only
-      const [r, g, b] = this.parseColor(fillColor)
-      this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`)
-      this.addContent('f')  // Fill
+      const [r, g, b] = this.parseColor(fillColor);
+      this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} rg`);
+      this.addContent('f'); // Fill
     } else if (strokeColor) {
       // Stroke only
-      const [r, g, b] = this.parseColor(strokeColor)
-      this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} RG`)
-      this.addContent('S')  // Stroke
+      const [r, g, b] = this.parseColor(strokeColor);
+      this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} RG`);
+      this.addContent('S'); // Stroke
     }
 
     // Reset dash pattern
     if (dashPattern && dashPattern.length > 0) {
-      this.addContent('[] 0 d')
+      this.addContent('[] 0 d');
     }
   }
 
@@ -3096,77 +3378,108 @@ export class PDFWriter {
    * Draw a circle
    */
   circle(options: CircleOptions): void {
-    const { x, y, radius, fillColor, fillGradient, strokeColor, strokeWidth, dashPattern } = options
+    const { x, y, radius, fillColor, fillGradient, strokeColor, strokeWidth, dashPattern } =
+      options;
+    validatePositiveNumber(radius, 'radius');
 
     // Circle approximation using Bezier curves
     // Magic number for approximating a circle with cubic Bezier curves
-    const k = 0.5522847498
+    const k = 0.5522847498;
 
-    const ox = radius * k  // Control point offset for x
-    const oy = radius * k  // Control point offset for y
+    const ox = radius * k; // Control point offset for x
+    const oy = radius * k; // Control point offset for y
 
     // Move to start point (right side of circle)
-    this.addContent(`${(x + radius).toFixed(2)} ${y.toFixed(2)} m`)
+    this.addContent(`${(x + radius).toFixed(2)} ${y.toFixed(2)} m`);
 
     // Top-right arc
-    this.addContent(`${(x + radius).toFixed(2)} ${(y + oy).toFixed(2)} ${(x + ox).toFixed(2)} ${(y + radius).toFixed(2)} ${x.toFixed(2)} ${(y + radius).toFixed(2)} c`)
+    this.addContent(
+      `${(x + radius).toFixed(2)} ${(y + oy).toFixed(2)} ${(x + ox).toFixed(2)} ${(y + radius).toFixed(2)} ${x.toFixed(2)} ${(y + radius).toFixed(2)} c`
+    );
     // Top-left arc
-    this.addContent(`${(x - ox).toFixed(2)} ${(y + radius).toFixed(2)} ${(x - radius).toFixed(2)} ${(y + oy).toFixed(2)} ${(x - radius).toFixed(2)} ${y.toFixed(2)} c`)
+    this.addContent(
+      `${(x - ox).toFixed(2)} ${(y + radius).toFixed(2)} ${(x - radius).toFixed(2)} ${(y + oy).toFixed(2)} ${(x - radius).toFixed(2)} ${y.toFixed(2)} c`
+    );
     // Bottom-left arc
-    this.addContent(`${(x - radius).toFixed(2)} ${(y - oy).toFixed(2)} ${(x - ox).toFixed(2)} ${(y - radius).toFixed(2)} ${x.toFixed(2)} ${(y - radius).toFixed(2)} c`)
+    this.addContent(
+      `${(x - radius).toFixed(2)} ${(y - oy).toFixed(2)} ${(x - ox).toFixed(2)} ${(y - radius).toFixed(2)} ${x.toFixed(2)} ${(y - radius).toFixed(2)} c`
+    );
     // Bottom-right arc
-    this.addContent(`${(x + ox).toFixed(2)} ${(y - radius).toFixed(2)} ${(x + radius).toFixed(2)} ${(y - oy).toFixed(2)} ${(x + radius).toFixed(2)} ${y.toFixed(2)} c`)
+    this.addContent(
+      `${(x + ox).toFixed(2)} ${(y - radius).toFixed(2)} ${(x + radius).toFixed(2)} ${(y - oy).toFixed(2)} ${(x + radius).toFixed(2)} ${y.toFixed(2)} c`
+    );
 
     // Close path
-    this.addContent('h')
+    this.addContent('h');
 
     // Apply styling
-    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient)
+    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient);
   }
 
   /**
    * Draw an ellipse
    */
   ellipse(options: EllipseOptions): void {
-    const { x, y, radiusX, radiusY, rotation = 0, fillColor, fillGradient, strokeColor, strokeWidth, dashPattern } = options
+    const {
+      x,
+      y,
+      radiusX,
+      radiusY,
+      rotation = 0,
+      fillColor,
+      fillGradient,
+      strokeColor,
+      strokeWidth,
+      dashPattern,
+    } = options;
+    validatePositiveNumber(radiusX, 'radiusX');
+    validatePositiveNumber(radiusY, 'radiusY');
 
-    const k = 0.5522847498
-    const ox = radiusX * k
-    const oy = radiusY * k
+    const k = 0.5522847498;
+    const ox = radiusX * k;
+    const oy = radiusY * k;
 
     // If rotation is specified, save graphics state and rotate
     if (rotation !== 0) {
-      this.addContent('q')  // Save state
-      const rad = (rotation * Math.PI) / 180
-      const cos = parseFloat(Math.cos(rad).toFixed(6))
-      const sin = parseFloat(Math.sin(rad).toFixed(6))
+      this.addContent('q'); // Save state
+      const rad = (rotation * Math.PI) / 180;
+      const cos = parseFloat(Math.cos(rad).toFixed(6));
+      const sin = parseFloat(Math.sin(rad).toFixed(6));
       // Transformation matrix: translate to center, rotate, translate back
-      this.addContent(`1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} cm`)  // Translate to center
-      this.addContent(`${cos} ${sin} ${-sin} ${cos} 0 0 cm`)  // Rotate
-      this.addContent(`1 0 0 1 ${(-x).toFixed(2)} ${(-y).toFixed(2)} cm`)  // Translate back
+      this.addContent(`1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} cm`); // Translate to center
+      this.addContent(`${cos} ${sin} ${-sin} ${cos} 0 0 cm`); // Rotate
+      this.addContent(`1 0 0 1 ${(-x).toFixed(2)} ${(-y).toFixed(2)} cm`); // Translate back
     }
 
     // Move to start point (right side of ellipse)
-    this.addContent(`${(x + radiusX).toFixed(2)} ${y.toFixed(2)} m`)
+    this.addContent(`${(x + radiusX).toFixed(2)} ${y.toFixed(2)} m`);
 
     // Top-right arc
-    this.addContent(`${(x + radiusX).toFixed(2)} ${(y + oy).toFixed(2)} ${(x + ox).toFixed(2)} ${(y + radiusY).toFixed(2)} ${x.toFixed(2)} ${(y + radiusY).toFixed(2)} c`)
+    this.addContent(
+      `${(x + radiusX).toFixed(2)} ${(y + oy).toFixed(2)} ${(x + ox).toFixed(2)} ${(y + radiusY).toFixed(2)} ${x.toFixed(2)} ${(y + radiusY).toFixed(2)} c`
+    );
     // Top-left arc
-    this.addContent(`${(x - ox).toFixed(2)} ${(y + radiusY).toFixed(2)} ${(x - radiusX).toFixed(2)} ${(y + oy).toFixed(2)} ${(x - radiusX).toFixed(2)} ${y.toFixed(2)} c`)
+    this.addContent(
+      `${(x - ox).toFixed(2)} ${(y + radiusY).toFixed(2)} ${(x - radiusX).toFixed(2)} ${(y + oy).toFixed(2)} ${(x - radiusX).toFixed(2)} ${y.toFixed(2)} c`
+    );
     // Bottom-left arc
-    this.addContent(`${(x - radiusX).toFixed(2)} ${(y - oy).toFixed(2)} ${(x - ox).toFixed(2)} ${(y - radiusY).toFixed(2)} ${x.toFixed(2)} ${(y - radiusY).toFixed(2)} c`)
+    this.addContent(
+      `${(x - radiusX).toFixed(2)} ${(y - oy).toFixed(2)} ${(x - ox).toFixed(2)} ${(y - radiusY).toFixed(2)} ${x.toFixed(2)} ${(y - radiusY).toFixed(2)} c`
+    );
     // Bottom-right arc
-    this.addContent(`${(x + ox).toFixed(2)} ${(y - radiusY).toFixed(2)} ${(x + radiusX).toFixed(2)} ${(y - oy).toFixed(2)} ${(x + radiusX).toFixed(2)} ${y.toFixed(2)} c`)
+    this.addContent(
+      `${(x + ox).toFixed(2)} ${(y - radiusY).toFixed(2)} ${(x + radiusX).toFixed(2)} ${(y - oy).toFixed(2)} ${(x + radiusX).toFixed(2)} ${y.toFixed(2)} c`
+    );
 
     // Close path
-    this.addContent('h')
+    this.addContent('h');
 
     // Apply styling
-    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient)
+    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient);
 
     // Restore graphics state if rotated
     if (rotation !== 0) {
-      this.addContent('Q')  // Restore state
+      this.addContent('Q'); // Restore state
     }
   }
 
@@ -3174,99 +3487,122 @@ export class PDFWriter {
    * Draw a regular polygon
    */
   polygon(options: PolygonOptions): void {
-    const { x, y, radius, sides, rotation = 0, fillColor, fillGradient, strokeColor, strokeWidth, dashPattern } = options
+    const {
+      x,
+      y,
+      radius,
+      sides,
+      rotation = 0,
+      fillColor,
+      fillGradient,
+      strokeColor,
+      strokeWidth,
+      dashPattern,
+    } = options;
 
     if (sides < 3) {
-      throw new Error('Polygon must have at least 3 sides')
+      throw new ValidationError('Polygon must have at least 3 sides', 'sides');
     }
 
     // Calculate vertices
-    const angleStep = (2 * Math.PI) / sides
-    const startAngle = (rotation * Math.PI) / 180 - Math.PI / 2  // Start at top
+    const angleStep = (2 * Math.PI) / sides;
+    const startAngle = (rotation * Math.PI) / 180 - Math.PI / 2; // Start at top
 
     // Move to first vertex
-    const x0 = x + radius * Math.cos(startAngle)
-    const y0 = y + radius * Math.sin(startAngle)
-    this.addContent(`${x0.toFixed(2)} ${y0.toFixed(2)} m`)
+    const x0 = x + radius * Math.cos(startAngle);
+    const y0 = y + radius * Math.sin(startAngle);
+    this.addContent(`${x0.toFixed(2)} ${y0.toFixed(2)} m`);
 
     // Draw lines to other vertices
     for (let i = 1; i <= sides; i++) {
-      const angle = startAngle + angleStep * i
-      const xi = x + radius * Math.cos(angle)
-      const yi = y + radius * Math.sin(angle)
-      this.addContent(`${xi.toFixed(2)} ${yi.toFixed(2)} l`)
+      const angle = startAngle + angleStep * i;
+      const xi = x + radius * Math.cos(angle);
+      const yi = y + radius * Math.sin(angle);
+      this.addContent(`${xi.toFixed(2)} ${yi.toFixed(2)} l`);
     }
 
     // Close path
-    this.addContent('h')
+    this.addContent('h');
 
     // Apply styling
-    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient)
+    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient);
   }
 
   /**
    * Draw an arc (curved line, not filled)
    */
   arc(options: ArcOptions): void {
-    const { x, y, radius, startAngle, endAngle, counterclockwise = false, strokeColor, strokeWidth, dashPattern } = options
+    const {
+      x,
+      y,
+      radius,
+      startAngle,
+      endAngle,
+      counterclockwise = false,
+      strokeColor,
+      strokeWidth,
+      dashPattern,
+    } = options;
 
     // Convert angles to radians
-    const startRad = (startAngle * Math.PI) / 180
-    const endRad = (endAngle * Math.PI) / 180
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
 
     // Calculate arc using Bezier curves
     // For simplicity, we'll approximate with a single cubic Bezier if the arc is <= 90 degrees
     // Otherwise, split into multiple segments
 
-    let currentAngle = startRad
-    const targetAngle = endRad
-    const direction = counterclockwise ? -1 : 1
+    let currentAngle = startRad;
+    const targetAngle = endRad;
+    const direction = counterclockwise ? -1 : 1;
 
     // Move to start point
-    const x0 = x + radius * Math.cos(startRad)
-    const y0 = y + radius * Math.sin(startRad)
-    this.addContent(`${x0.toFixed(2)} ${y0.toFixed(2)} m`)
+    const x0 = x + radius * Math.cos(startRad);
+    const y0 = y + radius * Math.sin(startRad);
+    this.addContent(`${x0.toFixed(2)} ${y0.toFixed(2)} m`);
 
     // Draw arc in segments
     while (Math.abs(targetAngle - currentAngle) > 0.01) {
-      const remainingAngle = targetAngle - currentAngle
-      const segmentAngle = Math.min(Math.abs(remainingAngle), Math.PI / 2) * direction
-      const nextAngle = currentAngle + segmentAngle
+      const remainingAngle = targetAngle - currentAngle;
+      const segmentAngle = Math.min(Math.abs(remainingAngle), Math.PI / 2) * direction;
+      const nextAngle = currentAngle + segmentAngle;
 
       // Calculate control points for cubic Bezier
-      const q2 = (4 / 3) * Math.tan(segmentAngle / 4)
+      const q2 = (4 / 3) * Math.tan(segmentAngle / 4);
 
-      const cp1x = x + radius * (Math.cos(currentAngle) - q2 * Math.sin(currentAngle))
-      const cp1y = y + radius * (Math.sin(currentAngle) + q2 * Math.cos(currentAngle))
-      const cp2x = x + radius * (Math.cos(nextAngle) + q2 * Math.sin(nextAngle))
-      const cp2y = y + radius * (Math.sin(nextAngle) - q2 * Math.cos(nextAngle))
-      const endX = x + radius * Math.cos(nextAngle)
-      const endY = y + radius * Math.sin(nextAngle)
+      const cp1x = x + radius * (Math.cos(currentAngle) - q2 * Math.sin(currentAngle));
+      const cp1y = y + radius * (Math.sin(currentAngle) + q2 * Math.cos(currentAngle));
+      const cp2x = x + radius * (Math.cos(nextAngle) + q2 * Math.sin(nextAngle));
+      const cp2y = y + radius * (Math.sin(nextAngle) - q2 * Math.cos(nextAngle));
+      const endX = x + radius * Math.cos(nextAngle);
+      const endY = y + radius * Math.sin(nextAngle);
 
-      this.addContent(`${cp1x.toFixed(2)} ${cp1y.toFixed(2)} ${cp2x.toFixed(2)} ${cp2y.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)} c`)
+      this.addContent(
+        `${cp1x.toFixed(2)} ${cp1y.toFixed(2)} ${cp2x.toFixed(2)} ${cp2y.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)} c`
+      );
 
-      currentAngle = nextAngle
+      currentAngle = nextAngle;
     }
 
     // Stroke only (arcs are not filled)
     if (dashPattern && dashPattern.length > 0) {
-      const pattern = dashPattern.join(' ')
-      this.addContent(`[${pattern}] 0 d`)
+      const pattern = dashPattern.join(' ');
+      this.addContent(`[${pattern}] 0 d`);
     }
 
     if (strokeWidth !== undefined) {
-      this.setLineWidth(strokeWidth)
+      this.setLineWidth(strokeWidth);
     }
 
     if (strokeColor) {
-      const [r, g, b] = this.parseColor(strokeColor)
-      this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} RG`)
+      const [r, g, b] = this.parseColor(strokeColor);
+      this.addContent(`${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)} RG`);
     }
 
-    this.addContent('S')
+    this.addContent('S');
 
     if (dashPattern && dashPattern.length > 0) {
-      this.addContent('[] 0 d')
+      this.addContent('[] 0 d');
     }
   }
 
@@ -3274,56 +3610,70 @@ export class PDFWriter {
    * Draw a sector (pie slice)
    */
   sector(options: SectorOptions): void {
-    const { x, y, radius, startAngle, endAngle, counterclockwise = false, fillColor, fillGradient, strokeColor, strokeWidth, dashPattern } = options
+    const {
+      x,
+      y,
+      radius,
+      startAngle,
+      endAngle,
+      counterclockwise = false,
+      fillColor,
+      fillGradient,
+      strokeColor,
+      strokeWidth,
+      dashPattern,
+    } = options;
 
     // Convert angles to radians
-    const startRad = (startAngle * Math.PI) / 180
-    const endRad = (endAngle * Math.PI) / 180
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
 
     // Move to center
-    this.addContent(`${x.toFixed(2)} ${y.toFixed(2)} m`)
+    this.addContent(`${x.toFixed(2)} ${y.toFixed(2)} m`);
 
     // Line to start of arc
-    const x0 = x + radius * Math.cos(startRad)
-    const y0 = y + radius * Math.sin(startRad)
-    this.addContent(`${x0.toFixed(2)} ${y0.toFixed(2)} l`)
+    const x0 = x + radius * Math.cos(startRad);
+    const y0 = y + radius * Math.sin(startRad);
+    this.addContent(`${x0.toFixed(2)} ${y0.toFixed(2)} l`);
 
     // Draw arc (similar to arc() method)
-    let currentAngle = startRad
-    const targetAngle = endRad
-    const direction = counterclockwise ? -1 : 1
+    let currentAngle = startRad;
+    const targetAngle = endRad;
+    const direction = counterclockwise ? -1 : 1;
 
     while (Math.abs(targetAngle - currentAngle) > 0.01) {
-      const remainingAngle = targetAngle - currentAngle
-      const segmentAngle = Math.min(Math.abs(remainingAngle), Math.PI / 2) * direction
-      const nextAngle = currentAngle + segmentAngle
+      const remainingAngle = targetAngle - currentAngle;
+      const segmentAngle = Math.min(Math.abs(remainingAngle), Math.PI / 2) * direction;
+      const nextAngle = currentAngle + segmentAngle;
 
-      const q2 = (4 / 3) * Math.tan(segmentAngle / 4)
+      const q2 = (4 / 3) * Math.tan(segmentAngle / 4);
 
-      const cp1x = x + radius * (Math.cos(currentAngle) - q2 * Math.sin(currentAngle))
-      const cp1y = y + radius * (Math.sin(currentAngle) + q2 * Math.cos(currentAngle))
-      const cp2x = x + radius * (Math.cos(nextAngle) + q2 * Math.sin(nextAngle))
-      const cp2y = y + radius * (Math.sin(nextAngle) - q2 * Math.cos(nextAngle))
-      const endX = x + radius * Math.cos(nextAngle)
-      const endY = y + radius * Math.sin(nextAngle)
+      const cp1x = x + radius * (Math.cos(currentAngle) - q2 * Math.sin(currentAngle));
+      const cp1y = y + radius * (Math.sin(currentAngle) + q2 * Math.cos(currentAngle));
+      const cp2x = x + radius * (Math.cos(nextAngle) + q2 * Math.sin(nextAngle));
+      const cp2y = y + radius * (Math.sin(nextAngle) - q2 * Math.cos(nextAngle));
+      const endX = x + radius * Math.cos(nextAngle);
+      const endY = y + radius * Math.sin(nextAngle);
 
-      this.addContent(`${cp1x.toFixed(2)} ${cp1y.toFixed(2)} ${cp2x.toFixed(2)} ${cp2y.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)} c`)
+      this.addContent(
+        `${cp1x.toFixed(2)} ${cp1y.toFixed(2)} ${cp2x.toFixed(2)} ${cp2y.toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)} c`
+      );
 
-      currentAngle = nextAngle
+      currentAngle = nextAngle;
     }
 
     // Close path (line back to center)
-    this.addContent('h')
+    this.addContent('h');
 
     // Apply styling
-    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient)
+    this.applyShapeStyle(fillColor, strokeColor, strokeWidth, dashPattern, fillGradient);
   }
 
   /**
    * Draw a cubic Bezier curve
    */
   curveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void {
-    this.addContent(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`)
+    this.addContent(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`);
   }
 
   /**
@@ -3333,283 +3683,324 @@ export class PDFWriter {
     // PDF doesn't have native quadratic Bezier, convert to cubic
     // Get current point (we need to track this)
     // For now, we'll use a simplified version
-    this.addContent(`${cpx} ${cpy} ${x} ${y} v`)
+    this.addContent(`${cpx} ${cpy} ${x} ${y} v`);
   }
 
   /**
-   * Generate the final PDF as a Buffer
+   * Reserve all PDF object IDs needed for generation.
    */
-  async generate(): Promise<Buffer> {
-    // Render watermarks, page numbers, headers, and footers before generating PDF
-    await this.renderWatermarks()
-    this.renderPageNumbers()
-    this.renderHeaders()
-    this.renderFooters()
-    const objects: PDFObject[] = []
-    let currentObjectId = 1
+  private reserveObjectIds(): GenerationContext {
+    const objects: PDFObject[] = [];
+    let currentObjectId = 1;
 
     // Reserve IDs for Info object
-    const infoObjectId = currentObjectId++
+    const infoObjectId = currentObjectId++;
 
     // Object 1 (now 2): Catalog
-    const catalogId = currentObjectId++
+    const catalogId = currentObjectId++;
 
     // Object 2 (now 3): Pages (will contain all page references)
-    const pageObjectIds: number[] = []
-    const pagesObjectId = currentObjectId++
+    const pageObjectIds: number[] = [];
+    const pagesObjectId = currentObjectId++;
 
     // Reserve object IDs for pages, content streams, resources, and fonts
-    const firstPageObjectId = currentObjectId
+    const firstPageObjectId = currentObjectId;
 
     // For each page we need: Page object, Content stream, Resources object
-    const pageObjectsCount = this.pages.length * 3
-    currentObjectId = firstPageObjectId + pageObjectsCount
-
-    // Fallback: if no fonts registered, register default Helvetica
-    if (this.fonts.size === 0) {
-      this.getFontId('Helvetica')
-    }
+    const pageObjectsCount = this.pages.length * 3;
+    currentObjectId = firstPageObjectId + pageObjectsCount;
 
     // Reserve object IDs for all fonts
-    const fontObjectIds = new Map<PDFBaseFont, number>()
+    const fontObjectIds = new Map<PDFBaseFont, number>();
     this.fonts.forEach((fontIndex, fontName) => {
-      fontObjectIds.set(fontName, currentObjectId++)
-    })
+      fontObjectIds.set(fontName, currentObjectId++);
+    });
 
     // Reserve object IDs for custom fonts (each needs 4 objects: Font, FontDescriptor, FontFile2, ToUnicode)
-    const customFontObjectIds = new Map<string, { fontId: number; descriptorId: number; fileId: number; toUnicodeId: number }>()
+    const customFontObjectIds = new Map<
+      string,
+      { fontId: number; descriptorId: number; fileId: number; toUnicodeId: number }
+    >();
     this.customFonts.forEach((fontIndex, fontName) => {
       customFontObjectIds.set(fontName, {
         fontId: currentObjectId++,
         descriptorId: currentObjectId++,
         fileId: currentObjectId++,
-        toUnicodeId: currentObjectId++
-      })
-    })
+        toUnicodeId: currentObjectId++,
+      });
+    });
 
     // Reserve object IDs for image XObjects
-    const imageObjectIds = new Map<number, number>()
+    const imageObjectIds = new Map<number, number>();
     this.imageManager.getAllImages().forEach((value, key) => {
-      imageObjectIds.set(value.id, currentObjectId++)
-    })
+      imageObjectIds.set(value.id, currentObjectId++);
+    });
 
     // Reserve object IDs for gradients (each needs a Shading and a Pattern)
-    const gradientShadingIds = new Map<string, number>()
-    const gradientPatternIds = new Map<string, number>()
+    const gradientShadingIds = new Map<string, number>();
+    const gradientPatternIds = new Map<string, number>();
     this.gradientManager.getAllGradients().forEach((value, hash) => {
-      gradientShadingIds.set(hash, currentObjectId++)
-      gradientPatternIds.set(hash, currentObjectId++)
-    })
+      gradientShadingIds.set(hash, currentObjectId++);
+      gradientPatternIds.set(hash, currentObjectId++);
+    });
 
     // Reserve object IDs for tiling patterns
-    const tilingPatternIds = new Map<string, number>()
+    const tilingPatternIds = new Map<string, number>();
     this.patternManager.getAllPatterns().forEach((value, hash) => {
-      tilingPatternIds.set(hash, currentObjectId++)
-    })
+      tilingPatternIds.set(hash, currentObjectId++);
+    });
 
     // Reserve object IDs for Form XObjects
-    const formXObjectIds = new Map<string, number>()
+    const formXObjectIds = new Map<string, number>();
     this.formXObjects.forEach((value, name) => {
-      formXObjectIds.set(name, currentObjectId++)
-    })
+      formXObjectIds.set(name, currentObjectId++);
+    });
 
     // Reserve object IDs for Optional Content Groups (Layers)
-    const layerObjectIds = new Map<string, number>()
+    const layerObjectIds = new Map<string, number>();
     this.layerManager.getAllLayers().forEach((value, name) => {
-      layerObjectIds.set(name, currentObjectId++)
-    })
+      layerObjectIds.set(name, currentObjectId++);
+    });
 
     // Reserve object IDs for OCProperties dictionary (if we have layers)
-    let ocPropertiesId = 0
+    let ocPropertiesId = 0;
     if (this.layerManager.getLayerCount() > 0) {
-      ocPropertiesId = currentObjectId++
+      ocPropertiesId = currentObjectId++;
     }
 
     // Reserve object IDs for annotations (one object per annotation)
-    const annotationObjectIds = new Map<number, number[]>()
+    const annotationObjectIds = new Map<number, number[]>();
     this.pages.forEach((pageData, pageIndex) => {
-      const annotIds: number[] = []
+      const annotIds: number[] = [];
       pageData.annotations.forEach(() => {
-        annotIds.push(currentObjectId++)
-      })
-      annotationObjectIds.set(pageIndex, annotIds)
-    })
+        annotIds.push(currentObjectId++);
+      });
+      annotationObjectIds.set(pageIndex, annotIds);
+    });
 
     // Reserve object IDs for advanced annotations (text, highlight, etc.)
-    const advancedAnnotationIds: number[] = []
+    const advancedAnnotationIds: number[] = [];
     this.annotationManager.getAllAnnotations().forEach(() => {
-      advancedAnnotationIds.push(currentObjectId++)
-    })
+      advancedAnnotationIds.push(currentObjectId++);
+    });
 
     // Reserve object IDs for form fields and signature fields
-    let acroFormId: number | null = null
-    const fieldObjectIds: number[] = []
-    const signatureObjectIds: number[] = []
+    let acroFormId: number | null = null;
+    const fieldObjectIds: number[] = [];
+    const signatureObjectIds: number[] = [];
 
     if (this.formFields.length > 0 || this.signatureFields.length > 0) {
-      acroFormId = currentObjectId++
+      acroFormId = currentObjectId++;
 
       // Reserve an object ID for each form field (and widget annotation)
       this.formFields.forEach(() => {
-        fieldObjectIds.push(currentObjectId++)
-      })
+        fieldObjectIds.push(currentObjectId++);
+      });
 
       // Reserve an object ID for each signature field (and widget annotation)
       this.signatureFields.forEach(() => {
-        signatureObjectIds.push(currentObjectId++)
-      })
+        signatureObjectIds.push(currentObjectId++);
+      });
     }
 
     // Reserve object IDs for new annotations (text, highlight, etc.)
-    const newAnnotationObjectIds: number[] = []
+    const newAnnotationObjectIds: number[] = [];
     this.annotationManager.getAllAnnotations().forEach(() => {
-      newAnnotationObjectIds.push(currentObjectId++)
-    })
+      newAnnotationObjectIds.push(currentObjectId++);
+    });
 
     // Reserve object IDs for bookmarks/outlines
-    let outlinesRootId: number | null = null
-    const bookmarkObjectIds = new Map<BookmarkOptions, number>()
+    let outlinesRootId: number | null = null;
+    const bookmarkObjectIds = new Map<BookmarkOptions, number>();
 
     if (this.bookmarks.length > 0) {
-      outlinesRootId = currentObjectId++
+      outlinesRootId = currentObjectId++;
 
       // Recursively count and reserve IDs for all bookmarks
       const reserveBookmarkIds = (bookmarks: BookmarkOptions[]) => {
-        bookmarks.forEach(bookmark => {
-          bookmarkObjectIds.set(bookmark, currentObjectId++)
+        bookmarks.forEach((bookmark) => {
+          bookmarkObjectIds.set(bookmark, currentObjectId++);
           if (bookmark.children) {
-            reserveBookmarkIds(bookmark.children)
+            reserveBookmarkIds(bookmark.children);
           }
-        })
-      }
+        });
+      };
 
-      reserveBookmarkIds(this.bookmarks)
+      reserveBookmarkIds(this.bookmarks);
     }
 
     // Reserve object IDs for file attachments
-    let namesTreeId: number | null = null
-    const attachmentFileSpecIds: number[] = []
-    const attachmentEmbeddedFileIds: number[] = []
-    const attachmentAnnotationIds: number[] = []
+    let namesTreeId: number | null = null;
+    const attachmentFileSpecIds: number[] = [];
+    const attachmentEmbeddedFileIds: number[] = [];
+    const attachmentAnnotationIds: number[] = [];
 
     // Document-level attachments
     if (this.attachments.length > 0) {
-      namesTreeId = currentObjectId++  // Names dictionary
+      namesTreeId = currentObjectId++; // Names dictionary
       this.attachments.forEach(() => {
-        attachmentFileSpecIds.push(currentObjectId++)  // FileSpec
-        attachmentEmbeddedFileIds.push(currentObjectId++)  // EmbeddedFile stream
-      })
+        attachmentFileSpecIds.push(currentObjectId++); // FileSpec
+        attachmentEmbeddedFileIds.push(currentObjectId++); // EmbeddedFile stream
+      });
     }
 
     // Page-level file attachment annotations
     if (this.annotationManager.getAllAttachmentAnnotations().length > 0) {
       this.annotationManager.getAllAttachmentAnnotations().forEach(() => {
-        attachmentAnnotationIds.push(currentObjectId++)  // Annotation
-        attachmentFileSpecIds.push(currentObjectId++)  // FileSpec
-        attachmentEmbeddedFileIds.push(currentObjectId++)  // EmbeddedFile stream
-      })
+        attachmentAnnotationIds.push(currentObjectId++); // Annotation
+        attachmentFileSpecIds.push(currentObjectId++); // FileSpec
+        attachmentEmbeddedFileIds.push(currentObjectId++); // EmbeddedFile stream
+      });
     }
 
     // Reserve object IDs for ExtGState objects (blend modes and opacity)
-    const extGStateObjectIds = new Map<string, number>()
+    const extGStateObjectIds = new Map<string, number>();
     this.graphicsStateManager.getAllExtGStates().forEach((gsId, hash) => {
-      extGStateObjectIds.set(hash, currentObjectId++)
-    })
+      extGStateObjectIds.set(hash, currentObjectId++);
+    });
 
     // Reserve object IDs for XMP metadata and PDF/A compliance objects
-    let metadataObjectId: number | null = null
-    let outputIntentId: number | null = null
+    let metadataObjectId: number | null = null;
+    let outputIntentId: number | null = null;
 
     // Enable XMP metadata if PDF/A is enabled OR if explicitly requested
     if (this.pdfAOptions || this.enableXMPMetadata) {
-      metadataObjectId = currentObjectId++  // XMP Metadata stream
+      metadataObjectId = currentObjectId++; // XMP Metadata stream
     }
 
     // OutputIntent is only for PDF/A
     if (this.pdfAOptions) {
-      outputIntentId = currentObjectId++    // OutputIntent dictionary
+      outputIntentId = currentObjectId++; // OutputIntent dictionary
     }
 
-    // Create Info dictionary
-    objects.push({
-      id: infoObjectId,
-      data: this.generateInfoDictionary()
-    })
+    return {
+      objects,
+      currentObjectId,
+      infoObjectId,
+      catalogId,
+      pagesObjectId,
+      pageObjectIds,
+      firstPageObjectId,
+      fontObjectIds,
+      customFontObjectIds,
+      imageObjectIds,
+      gradientShadingIds,
+      gradientPatternIds,
+      tilingPatternIds,
+      formXObjectIds,
+      layerObjectIds,
+      ocPropertiesId,
+      annotationObjectIds,
+      advancedAnnotationIds,
+      newAnnotationObjectIds,
+      acroFormId,
+      fieldObjectIds,
+      signatureObjectIds,
+      outlinesRootId,
+      bookmarkObjectIds,
+      namesTreeId,
+      attachmentFileSpecIds,
+      attachmentEmbeddedFileIds,
+      attachmentAnnotationIds,
+      extGStateObjectIds,
+      metadataObjectId,
+      outputIntentId,
+    };
+  }
 
-    // Create Catalog with Info reference and optional ViewerPreferences
-    let catalogData = `<<\n  /Type /Catalog\n  /Pages ${pagesObjectId} 0 R`
+  /**
+   * Build the Info dictionary object.
+   */
+  private buildInfoObject(ctx: GenerationContext): void {
+    ctx.objects.push({
+      id: ctx.infoObjectId,
+      data: this.generateInfoDictionary(),
+    });
+  }
+
+  /**
+   * Build the Catalog dictionary object.
+   */
+  private buildCatalogObject(ctx: GenerationContext): void {
+    let catalogData = `<<\n  /Type /Catalog\n  /Pages ${ctx.pagesObjectId} 0 R`;
 
     // Add AcroForm reference if form fields exist
-    if (acroFormId) {
-      catalogData += `\n  /AcroForm ${acroFormId} 0 R`
+    if (ctx.acroFormId) {
+      catalogData += `\n  /AcroForm ${ctx.acroFormId} 0 R`;
     }
 
     // Add Outlines reference if bookmarks exist
-    if (outlinesRootId) {
-      catalogData += `\n  /Outlines ${outlinesRootId} 0 R`
-      catalogData += `\n  /PageMode /UseOutlines`  // Show bookmarks panel by default
+    if (ctx.outlinesRootId) {
+      catalogData += `\n  /Outlines ${ctx.outlinesRootId} 0 R`;
+      catalogData += `\n  /PageMode /UseOutlines`; // Show bookmarks panel by default
     }
 
     // Add Names dictionary reference if attachments exist
-    if (namesTreeId) {
-      catalogData += `\n  /Names ${namesTreeId} 0 R`
+    if (ctx.namesTreeId) {
+      catalogData += `\n  /Names ${ctx.namesTreeId} 0 R`;
     }
 
     // Add ViewerPreferences if displayTitle is true
     if (this.info.displayTitle) {
-      catalogData += `\n  /ViewerPreferences <<\n    /DisplayDocTitle true\n  >>`
+      catalogData += `\n  /ViewerPreferences <<\n    /DisplayDocTitle true\n  >>`;
     }
 
     // Add PDF/A compliance references
-    if (metadataObjectId) {
-      catalogData += `\n  /Metadata ${metadataObjectId} 0 R`
+    if (ctx.metadataObjectId) {
+      catalogData += `\n  /Metadata ${ctx.metadataObjectId} 0 R`;
     }
 
-    if (outputIntentId) {
-      catalogData += `\n  /OutputIntents [${outputIntentId} 0 R]`
+    if (ctx.outputIntentId) {
+      catalogData += `\n  /OutputIntents [${ctx.outputIntentId} 0 R]`;
     }
 
     // Add OCProperties if layers exist
-    if (ocPropertiesId > 0) {
-      catalogData += `\n  /OCProperties ${ocPropertiesId} 0 R`
+    if (ctx.ocPropertiesId > 0) {
+      catalogData += `\n  /OCProperties ${ctx.ocPropertiesId} 0 R`;
     }
 
-    catalogData += `\n>>`
+    catalogData += `\n>>`;
 
-    objects.push({
-      id: catalogId,
-      data: catalogData
-    })
+    ctx.objects.push({
+      id: ctx.catalogId,
+      data: catalogData,
+    });
+  }
 
-    // Create hyperlink objects (before pages, so they can be referenced in Annots)
+  /**
+   * Build hyperlink annotation objects (before pages, so they can be referenced in Annots).
+   */
+  private buildLinkAnnotationObjects(ctx: GenerationContext): void {
     if (this.annotationManager.getAllLinks().length > 0) {
-      const linkObjectIds: number[] = []
+      const linkObjectIds: number[] = [];
       this.annotationManager.getAllLinks().forEach(() => {
-        linkObjectIds.push(currentObjectId++)
-      })
+        linkObjectIds.push(ctx.currentObjectId++);
+      });
 
       this.annotationManager.getAllLinks().forEach((link, index) => {
-        const linkObjectId = linkObjectIds[index]
-        const page = link.page !== undefined ? link.page : this.currentPageIndex
-        const pageObjId = firstPageObjectId + (page * 3) + 2
+        const linkObjectId = linkObjectIds[index];
+        const page = link.page !== undefined ? link.page : this.currentPageIndex;
+        const pageObjId = ctx.firstPageObjectId + page * 3 + 2;
 
         // Calculate rectangle (x, y, x+width, y+height)
-        const rect = [link.x, link.y, link.x + link.width, link.y + link.height]
+        const rect = [link.x, link.y, link.x + link.width, link.y + link.height];
 
         // Border style
-        const borderWidth = link.border?.width !== undefined ? link.border.width : 0
-        const borderColor = link.border?.color || [0, 0, 1]
-        const borderColorArray = Array.isArray(borderColor) ? borderColor : this.parseColor(borderColor)
+        const borderWidth = link.border?.width !== undefined ? link.border.width : 0;
+        const borderColor = link.border?.color || [0, 0, 1];
+        const borderColorArray = Array.isArray(borderColor)
+          ? borderColor
+          : this.parseColor(borderColor);
 
         // Highlight mode
-        const highlight = link.highlight || 'invert'
+        const highlight = link.highlight || 'invert';
         const highlightMap = {
-          'none': 'N',
-          'invert': 'I',
-          'outline': 'O',
-          'push': 'P'
-        }
-        const H = highlightMap[highlight]
+          none: 'N',
+          invert: 'I',
+          outline: 'O',
+          push: 'P',
+        };
+        const H = highlightMap[highlight];
 
         let linkDict = `<<
   /Type /Annot
@@ -3618,359 +4009,397 @@ export class PDFWriter {
   /Border [0 0 ${borderWidth}]
   /C [${borderColorArray.join(' ')}]
   /H /${H}
-  /P ${pageObjId} 0 R`
+  /P ${pageObjId} 0 R`;
 
         if (link.type === 'url') {
           // External link (URL)
-          const uri = this.escapePDFString(link.url)
-          linkDict += `\n  /A <<\n    /S /URI\n    /URI (${uri})\n  >>`
+          const uri = this.escapePDFString(link.url);
+          linkDict += `\n  /A <<\n    /S /URI\n    /URI (${uri})\n  >>`;
         } else if (link.type === 'page') {
           // Internal link (page)
-          const targetPageObjId = firstPageObjectId + (link.targetPage * 3) + 2
-          const fit = link.fit || 'Fit'
+          const targetPageObjId = ctx.firstPageObjectId + link.targetPage * 3 + 2;
+          const fit = link.fit || 'Fit';
 
-          let dest = `[${targetPageObjId} 0 R /`
+          let dest = `[${targetPageObjId} 0 R /`;
           switch (fit) {
             case 'Fit':
-              dest += 'Fit]'
-              break
+              dest += 'Fit]';
+              break;
             case 'FitH':
-              dest += `FitH ${link.top !== undefined ? link.top : 'null'}]`
-              break
+              dest += `FitH ${link.top !== undefined ? link.top : 'null'}]`;
+              break;
             case 'FitV':
-              dest += `FitV ${link.left !== undefined ? link.left : 'null'}]`
-              break
-            case 'XYZ':
-              const x = link.left !== undefined ? link.left : 'null'
-              const y = link.top !== undefined ? link.top : 'null'
-              const zoom = link.zoom !== undefined ? link.zoom : 'null'
-              dest += `XYZ ${x} ${y} ${zoom}]`
-              break
+              dest += `FitV ${link.left !== undefined ? link.left : 'null'}]`;
+              break;
+            case 'XYZ': {
+              const x = link.left !== undefined ? link.left : 'null';
+              const y = link.top !== undefined ? link.top : 'null';
+              const zoom = link.zoom !== undefined ? link.zoom : 'null';
+              dest += `XYZ ${x} ${y} ${zoom}]`;
+              break;
+            }
             default:
-              dest += 'Fit]'
+              dest += 'Fit]';
           }
 
-          linkDict += `\n  /Dest ${dest}`
+          linkDict += `\n  /Dest ${dest}`;
         } else if (link.type === 'goto') {
           // GoTo link (named destination)
-          const destination = this.namedDestinations.get(link.destination)
+          const destination = this.namedDestinations.get(link.destination);
           if (destination) {
-            const targetPageObjId = firstPageObjectId + (destination.page * 3) + 2
-            const fit = destination.fit || 'XYZ'
+            const targetPageObjId = ctx.firstPageObjectId + destination.page * 3 + 2;
+            const fit = destination.fit || 'XYZ';
 
-            let dest = `[${targetPageObjId} 0 R /`
+            let dest = `[${targetPageObjId} 0 R /`;
             switch (fit) {
               case 'Fit':
-                dest += 'Fit]'
-                break
+                dest += 'Fit]';
+                break;
               case 'FitH':
-                dest += `FitH ${destination.y !== undefined ? destination.y : 'null'}]`
-                break
+                dest += `FitH ${destination.y !== undefined ? destination.y : 'null'}]`;
+                break;
               case 'FitV':
-                dest += `FitV ${destination.x !== undefined ? destination.x : 'null'}]`
-                break
-              case 'XYZ':
-                const x = destination.x !== undefined ? destination.x : 'null'
-                const y = destination.y !== undefined ? destination.y : 'null'
-                const zoom = destination.zoom !== undefined ? destination.zoom : 'null'
-                dest += `XYZ ${x} ${y} ${zoom}]`
-                break
+                dest += `FitV ${destination.x !== undefined ? destination.x : 'null'}]`;
+                break;
+              case 'XYZ': {
+                const x = destination.x !== undefined ? destination.x : 'null';
+                const y = destination.y !== undefined ? destination.y : 'null';
+                const zoom = destination.zoom !== undefined ? destination.zoom : 'null';
+                dest += `XYZ ${x} ${y} ${zoom}]`;
+                break;
+              }
               default:
-                dest += 'Fit]'
+                dest += 'Fit]';
             }
 
-            linkDict += `\n  /Dest ${dest}`
+            linkDict += `\n  /Dest ${dest}`;
           }
         }
 
-        linkDict += '\n>>'
+        linkDict += '\n>>';
 
-        objects.push({
+        ctx.objects.push({
           id: linkObjectId,
-          data: linkDict
-        })
+          data: linkDict,
+        });
 
         // Add link to page's Annots array
-        const pageData = this.pages[page]
+        const pageData = this.pages[page];
         if (!pageData.linkAnnots) {
-          pageData.linkAnnots = []
+          pageData.linkAnnots = [];
         }
-        pageData.linkAnnots.push(linkObjectId)
-      })
+        pageData.linkAnnots.push(linkObjectId);
+      });
     }
+  }
 
-    // Create content streams, resources, and page objects for each page
+  /**
+   * Build page objects (content streams, resources, and page dictionaries).
+   */
+  private buildPageObjects(ctx: GenerationContext): void {
     this.pages.forEach((pageData, pageIndex) => {
-      const content = pageData.content.join('\n')
+      const content = pageData.content.join('\n');
 
       // Apply compression based on settings
-      let contentStreamData: Buffer
-      let filter = ''
+      let contentStreamData: Buffer;
+      let filter = '';
 
       if (this.compressionOptions.compressStreams !== false) {
         // Compress with configured level (0-9)
-        const level = this.compressionOptions.compressionLevel ?? 6
+        const level = this.compressionOptions.compressionLevel ?? 6;
         try {
-          const compressedContent = pako.deflate(content, { level })
-          contentStreamData = Buffer.from(compressedContent)
-          filter = '/Filter /FlateDecode\n  '
+          const compressedContent = pako.deflate(content, { level });
+          contentStreamData = Buffer.from(compressedContent);
+          filter = '/Filter /FlateDecode\n  ';
         } catch (error) {
           throw new CompressionError(
             `Failed to compress page ${pageIndex + 1} content stream: ${error instanceof Error ? error.message : 'Unknown error'}`,
             error instanceof Error ? error : undefined
-          )
+          );
         }
       } else {
         // No compression
-        contentStreamData = Buffer.from(content, 'binary')
+        contentStreamData = Buffer.from(content, 'binary');
       }
 
-      const contentStreamId = firstPageObjectId + (pageIndex * 3)
-      const resourcesId = contentStreamId + 1
-      const pageObjectId = contentStreamId + 2
+      const contentStreamId = ctx.firstPageObjectId + pageIndex * 3;
+      const resourcesId = contentStreamId + 1;
+      const pageObjectId = contentStreamId + 2;
 
-      pageObjectIds.push(pageObjectId)
+      ctx.pageObjectIds.push(pageObjectId);
 
       // Content Stream
-      objects.push({
+      ctx.objects.push({
         id: contentStreamId,
-        data: `<<\n  /Length ${contentStreamData.length}\n  ${filter}>>\nstream\n${contentStreamData.toString('binary')}\nendstream`
-      })
+        data: `<<\n  /Length ${contentStreamData.length}\n  ${filter}>>\nstream\n${contentStreamData.toString('binary')}\nendstream`,
+      });
 
       // Resources
-      let resourcesData = `<<\n  /Font <<`
+      let resourcesData = `<<\n  /Font <<`;
 
       // Add all registered base fonts
       this.fonts.forEach((fontIndex, fontName) => {
-        const fontObjId = fontObjectIds.get(fontName)!
-        resourcesData += `\n    /F${fontIndex} ${fontObjId} 0 R`
-      })
+        const fontObjId = ctx.fontObjectIds.get(fontName)!;
+        resourcesData += `\n    /F${fontIndex} ${fontObjId} 0 R`;
+      });
 
       // Add all registered custom fonts
       this.customFonts.forEach((fontIndex, fontName) => {
-        const fontIds = customFontObjectIds.get(fontName)!
-        resourcesData += `\n    /F${fontIndex} ${fontIds.fontId} 0 R`
-      })
+        const fontIds = ctx.customFontObjectIds.get(fontName)!;
+        resourcesData += `\n    /F${fontIndex} ${fontIds.fontId} 0 R`;
+      });
 
-      resourcesData += `\n  >>`
+      resourcesData += `\n  >>`;
 
       // Add XObject dictionary if there are images
       if (this.imageManager.getImageCount() > 0) {
-        resourcesData += `\n  /XObject <<`
+        resourcesData += `\n  /XObject <<`;
         this.imageManager.getAllImages().forEach((value, key) => {
-          const imageObjectId = imageObjectIds.get(value.id)!
-          resourcesData += `\n    /Im${value.id} ${imageObjectId} 0 R`
-        })
-        resourcesData += `\n  >>`
+          const imageObjectId = ctx.imageObjectIds.get(value.id)!;
+          resourcesData += `\n    /Im${value.id} ${imageObjectId} 0 R`;
+        });
+        resourcesData += `\n  >>`;
       }
 
       // Add Pattern dictionary if there are gradients or tiling patterns
-      if (this.gradientManager.getGradientCount() > 0 || this.patternManager.getPatternCount() > 0) {
-        resourcesData += `\n  /Pattern <<`
+      if (
+        this.gradientManager.getGradientCount() > 0 ||
+        this.patternManager.getPatternCount() > 0
+      ) {
+        resourcesData += `\n  /Pattern <<`;
         // Add gradient patterns
         this.gradientManager.getAllGradients().forEach((value, hash) => {
-          const patternObjectId = gradientPatternIds.get(hash)!
-          resourcesData += `\n    /P${value.id} ${patternObjectId} 0 R`
-        })
+          const patternObjectId = ctx.gradientPatternIds.get(hash)!;
+          resourcesData += `\n    /P${value.id} ${patternObjectId} 0 R`;
+        });
         // Add tiling patterns
         this.patternManager.getAllPatterns().forEach((value, hash) => {
-          const patternObjectId = tilingPatternIds.get(hash)!
-          resourcesData += `\n    /Pat${value.id} ${patternObjectId} 0 R`
-        })
-        resourcesData += `\n  >>`
+          const patternObjectId = ctx.tilingPatternIds.get(hash)!;
+          resourcesData += `\n    /Pat${value.id} ${patternObjectId} 0 R`;
+        });
+        resourcesData += `\n  >>`;
       }
 
       // Add ExtGState dictionary if there are blend modes or opacity
       if (this.graphicsStateManager.getExtGStateCount() > 0) {
-        resourcesData += `\n  /ExtGState <<`
+        resourcesData += `\n  /ExtGState <<`;
         this.graphicsStateManager.getAllExtGStates().forEach((gsId, hash) => {
-          const gsObjectId = extGStateObjectIds.get(hash)!
-          resourcesData += `\n    /GS${gsId} ${gsObjectId} 0 R`
-        })
-        resourcesData += `\n  >>`
+          const gsObjectId = ctx.extGStateObjectIds.get(hash)!;
+          resourcesData += `\n    /GS${gsId} ${gsObjectId} 0 R`;
+        });
+        resourcesData += `\n  >>`;
       }
 
       // Add XObject dictionary if there are Form XObjects
       if (this.formXObjects.size > 0) {
-        resourcesData += `\n  /XObject <<`
+        resourcesData += `\n  /XObject <<`;
         this.formXObjects.forEach((value, name) => {
-          const xobjectId = formXObjectIds.get(name)!
-          resourcesData += `\n    /${name} ${xobjectId} 0 R`
-        })
-        resourcesData += `\n  >>`
+          const xobjectId = ctx.formXObjectIds.get(name)!;
+          resourcesData += `\n    /${name} ${xobjectId} 0 R`;
+        });
+        resourcesData += `\n  >>`;
       }
 
       // Add Properties dictionary for Optional Content Groups (Layers)
       if (this.layerManager.getLayerCount() > 0) {
-        resourcesData += `\n  /Properties <<`
+        resourcesData += `\n  /Properties <<`;
         this.layerManager.getAllLayers().forEach((value, name) => {
-          const layerId = layerObjectIds.get(name)!
-          resourcesData += `\n    /OC${value.id} ${layerId} 0 R`
-        })
-        resourcesData += `\n  >>`
+          const layerId = ctx.layerObjectIds.get(name)!;
+          resourcesData += `\n    /OC${value.id} ${layerId} 0 R`;
+        });
+        resourcesData += `\n  >>`;
       }
 
-      resourcesData += `\n>>`
+      resourcesData += `\n>>`;
 
-      objects.push({
+      ctx.objects.push({
         id: resourcesId,
-        data: resourcesData
-      })
+        data: resourcesData,
+      });
 
       // Page object
-      let pageDict = `<<\n  /Type /Page\n  /Parent ${pagesObjectId} 0 R\n  /MediaBox [0 0 ${pageData.width} ${pageData.height}]\n  /Contents ${contentStreamId} 0 R\n  /Resources ${resourcesId} 0 R`
+      let pageDict = `<<\n  /Type /Page\n  /Parent ${ctx.pagesObjectId} 0 R\n  /MediaBox [0 0 ${pageData.width} ${pageData.height}]\n  /Contents ${contentStreamId} 0 R\n  /Resources ${resourcesId} 0 R`;
 
       // Add rotation if set
       if (pageData.rotation && pageData.rotation !== 0) {
-        pageDict += `\n  /Rotate ${pageData.rotation}`
+        pageDict += `\n  /Rotate ${pageData.rotation}`;
       }
 
       // Add annotations if any (links)
-      const annotIds = annotationObjectIds.get(pageIndex) || []
+      const annotIds = ctx.annotationObjectIds.get(pageIndex) || [];
 
       // Add form field widgets for this page
-      const pageFormFieldIds: number[] = []
+      const pageFormFieldIds: number[] = [];
       this.formFields.forEach((field, index) => {
         if (field.page === pageIndex) {
-          pageFormFieldIds.push(fieldObjectIds[index])
+          pageFormFieldIds.push(ctx.fieldObjectIds[index]);
         }
-      })
+      });
 
       // Add signature field widgets for this page
-      const pageSignatureFieldIds: number[] = []
+      const pageSignatureFieldIds: number[] = [];
       this.signatureFields.forEach((field, index) => {
         if (field.page === pageIndex) {
-          pageSignatureFieldIds.push(signatureObjectIds[index])
+          pageSignatureFieldIds.push(ctx.signatureObjectIds[index]);
         }
-      })
+      });
 
       // Add new annotations for this page
-      const pageNewAnnotationIds: number[] = []
+      const pageNewAnnotationIds: number[] = [];
       this.annotationManager.getAllAnnotations().forEach((annot, index) => {
         if (annot.page === pageIndex) {
-          pageNewAnnotationIds.push(newAnnotationObjectIds[index])
+          pageNewAnnotationIds.push(ctx.newAnnotationObjectIds[index]);
         }
-      })
+      });
 
       // Add hyperlinks for this page
-      const pageLinkAnnotIds = pageData.linkAnnots || []
+      const pageLinkAnnotIds = pageData.linkAnnots || [];
 
       // Combine all annotations (links + form fields + signature fields + new annotations + hyperlinks)
-      const allAnnotIds = [...annotIds, ...pageFormFieldIds, ...pageSignatureFieldIds, ...pageNewAnnotationIds, ...pageLinkAnnotIds]
+      const allAnnotIds = [
+        ...annotIds,
+        ...pageFormFieldIds,
+        ...pageSignatureFieldIds,
+        ...pageNewAnnotationIds,
+        ...pageLinkAnnotIds,
+      ];
       if (allAnnotIds.length > 0) {
-        const annotsArray = allAnnotIds.map(id => `${id} 0 R`).join(' ')
-        pageDict += `\n  /Annots [${annotsArray}]`
+        const annotsArray = allAnnotIds.map((id) => `${id} 0 R`).join(' ');
+        pageDict += `\n  /Annots [${annotsArray}]`;
       }
 
-      pageDict += `\n>>`
+      pageDict += `\n>>`;
 
-      objects.push({
+      ctx.objects.push({
         id: pageObjectId,
-        data: pageDict
-      })
-    })
+        data: pageDict,
+      });
+    });
+  }
 
-    // Font objects (shared by all pages) with configurable encoding
+  /**
+   * Build standard (Type1) font objects.
+   */
+  private buildStandardFontObjects(ctx: GenerationContext): void {
     this.fonts.forEach((fontIndex, fontName) => {
-      const fontObjId = fontObjectIds.get(fontName)!
-      objects.push({
+      const fontObjId = ctx.fontObjectIds.get(fontName)!;
+      ctx.objects.push({
         id: fontObjId,
-        data: `<<\n  /Type /Font\n  /Subtype /Type1\n  /BaseFont /${fontName}\n  /Encoding /${this.encoding}\n>>`
-      })
-    })
+        data: `<<\n  /Type /Font\n  /Subtype /Type1\n  /BaseFont /${fontName}\n  /Encoding /${this.encoding}\n>>`,
+      });
+    });
+  }
 
-    // Custom TrueType/OpenType font objects
+  /**
+   * Build custom TrueType/OpenType font objects.
+   */
+  private buildCustomFontObjects(ctx: GenerationContext): void {
     this.customFonts.forEach((fontIndex, fontName) => {
-      const fontInfo = this.fontManager.getFont(fontName)
-      if (!fontInfo) return
+      const fontInfo = this.fontManager.getFont(fontName);
+      if (!fontInfo) return;
 
-      const fontIds = customFontObjectIds.get(fontName)!
+      const fontIds = ctx.customFontObjectIds.get(fontName)!;
 
       // 1. FontFile2 stream (embedded font data, compressed)
-      const fontFileStream = this.fontManager.generateFontFileStream(fontInfo)
-      objects.push({
+      const fontFileStream = this.fontManager.generateFontFileStream(fontInfo);
+      ctx.objects.push({
         id: fontIds.fileId,
-        data: `<<\n  /Length ${fontFileStream.length}\n  /Length1 ${fontFileStream.length1}\n  /Filter /FlateDecode\n>>\nstream\n${fontFileStream.data.toString('binary')}\nendstream`
-      })
+        data: `<<\n  /Length ${fontFileStream.length}\n  /Length1 ${fontFileStream.length1}\n  /Filter /FlateDecode\n>>\nstream\n${fontFileStream.data.toString('binary')}\nendstream`,
+      });
 
       // 2. FontDescriptor
-      const fontDescriptor = this.fontManager.generateFontDescriptor(fontInfo, fontIds.fileId)
-      objects.push({
+      const fontDescriptor = this.fontManager.generateFontDescriptor(fontInfo, fontIds.fileId);
+      ctx.objects.push({
         id: fontIds.descriptorId,
-        data: fontDescriptor
-      })
+        data: fontDescriptor,
+      });
 
       // 3. ToUnicode CMap (for better text selection and copy-paste)
-      const toUnicodeCMap = this.fontManager.generateToUnicodeCMap(fontInfo)
-      objects.push({
+      const toUnicodeCMap = this.fontManager.generateToUnicodeCMap(fontInfo);
+      ctx.objects.push({
         id: fontIds.toUnicodeId,
-        data: `<<\n  /Length ${toUnicodeCMap.length}\n>>\nstream\n${toUnicodeCMap}\nendstream`
-      })
+        data: `<<\n  /Length ${toUnicodeCMap.length}\n>>\nstream\n${toUnicodeCMap}\nendstream`,
+      });
 
       // 4. Font Dictionary (with ToUnicode reference)
-      const fontDictionary = this.fontManager.generateFontDictionary(fontInfo, fontIds.descriptorId)
+      const fontDictionary = this.fontManager.generateFontDictionary(
+        fontInfo,
+        fontIds.descriptorId
+      );
       // Add ToUnicode reference to font dictionary
       const fontDictWithToUnicode = fontDictionary.replace(
         /\/Encoding \/WinAnsiEncoding\n>>/,
         `/Encoding /WinAnsiEncoding\n  /ToUnicode ${fontIds.toUnicodeId} 0 R\n>>`
-      )
-      objects.push({
+      );
+      ctx.objects.push({
         id: fontIds.fontId,
-        data: fontDictWithToUnicode
-      })
-    })
+        data: fontDictWithToUnicode,
+      });
+    });
+  }
 
-    // ExtGState objects (blend modes and opacity)
+  /**
+   * Build ExtGState objects (blend modes and opacity).
+   */
+  private buildExtGStateObjects(ctx: GenerationContext): void {
     this.graphicsStateManager.getAllExtGStates().forEach((gsId, hash) => {
-      const gsObjectId = extGStateObjectIds.get(hash)!
+      const gsObjectId = ctx.extGStateObjectIds.get(hash)!;
 
       // Parse hash to extract blend mode and opacity
       // Hash format: "BM:BlendMode|OP:0.500"
-      const parts = hash.split('|')
-      const blendMode = parts[0].split(':')[1]
-      const opacity = parseFloat(parts[1].split(':')[1])
+      const parts = hash.split('|');
+      const blendMode = parts[0].split(':')[1];
+      const opacity = parseFloat(parts[1].split(':')[1]);
 
       // Create ExtGState dictionary
-      let gsDict = `<<\n  /Type /ExtGState`
+      let gsDict = `<<\n  /Type /ExtGState`;
 
       // Add blend mode if not Normal
       if (blendMode !== 'Normal') {
-        gsDict += `\n  /BM /${blendMode}`
+        gsDict += `\n  /BM /${blendMode}`;
       }
 
       // Add opacity (both fill and stroke)
       if (opacity !== 1.0) {
-        gsDict += `\n  /ca ${opacity.toFixed(3)}`  // Stroke/fill opacity for non-stroke operations
-        gsDict += `\n  /CA ${opacity.toFixed(3)}`  // Stroke opacity
+        gsDict += `\n  /ca ${opacity.toFixed(3)}`; // Stroke/fill opacity for non-stroke operations
+        gsDict += `\n  /CA ${opacity.toFixed(3)}`; // Stroke opacity
       }
 
-      gsDict += `\n>>`
+      gsDict += `\n>>`;
 
-      objects.push({
+      ctx.objects.push({
         id: gsObjectId,
-        data: gsDict
-      })
-    })
+        data: gsDict,
+      });
+    });
+  }
 
-    // Pages object
-    const kidsArray = pageObjectIds.map(id => `${id} 0 R`).join(' ')
-    objects.push({
-      id: pagesObjectId,
-      data: `<<\n  /Type /Pages\n  /Kids [${kidsArray}]\n  /Count ${this.pages.length}\n>>`
-    })
+  /**
+   * Build the Pages tree root object.
+   */
+  private buildPagesObject(ctx: GenerationContext): void {
+    const kidsArray = ctx.pageObjectIds.map((id) => `${id} 0 R`).join(' ');
+    ctx.objects.push({
+      id: ctx.pagesObjectId,
+      data: `<<\n  /Type /Pages\n  /Kids [${kidsArray}]\n  /Count ${this.pages.length}\n>>`,
+    });
+  }
 
-    // Create image XObjects
+  /**
+   * Build image XObject objects.
+   */
+  private buildImageXObjects(ctx: GenerationContext): void {
     this.imageManager.getAllImages().forEach((value, key) => {
-      const imageObjectId = imageObjectIds.get(value.id)!
-      const img = value.info
+      const imageObjectId = ctx.imageObjectIds.get(value.id)!;
+      const img = value.info;
 
       // Handle mask image if present (create separate object for mask)
-      let maskObjectId: number | null = null
+      let maskObjectId: number | null = null;
       if (img.maskInfo) {
-        maskObjectId = currentObjectId++
-        const maskImg = img.maskInfo
-        const maskType = img.maskOptions?.type || 'luminosity'
-        const inverted = img.maskOptions?.inverted || false
+        maskObjectId = ctx.currentObjectId++;
+        const maskImg = img.maskInfo;
+        const maskType = img.maskOptions?.type || 'luminosity';
+        const inverted = img.maskOptions?.inverted || false;
 
         // Build mask image XObject
         let maskDict = `<<
@@ -3979,36 +4408,36 @@ export class PDFWriter {
   /Width ${maskImg.width}
   /Height ${maskImg.height}
   /ColorSpace /DeviceGray
-  /BitsPerComponent ${maskImg.bitsPerComponent}`
+  /BitsPerComponent ${maskImg.bitsPerComponent}`;
 
         if (maskType === 'stencil') {
           // Stencil mask (ImageMask = true)
-          maskDict += `\n  /ImageMask true`
+          maskDict += `\n  /ImageMask true`;
           if (inverted) {
-            maskDict += `\n  /Decode [1 0]`
+            maskDict += `\n  /Decode [1 0]`;
           } else {
-            maskDict += `\n  /Decode [0 1]`
+            maskDict += `\n  /Decode [0 1]`;
           }
         } else {
           // Luminosity mask
           if (inverted) {
-            maskDict += `\n  /Decode [1 0]`
+            maskDict += `\n  /Decode [1 0]`;
           }
         }
 
         // Add filter if present
         if (maskImg.filter) {
-          maskDict += `\n  /Filter /${maskImg.filter}`
+          maskDict += `\n  /Filter /${maskImg.filter}`;
         }
 
-        maskDict += `\n  /Length ${maskImg.data.length}`
-        maskDict += `\n>>`
-        maskDict += `\nstream\n${maskImg.data.toString('binary')}\nendstream`
+        maskDict += `\n  /Length ${maskImg.data.length}`;
+        maskDict += `\n>>`;
+        maskDict += `\nstream\n${maskImg.data.toString('binary')}\nendstream`;
 
-        objects.push({
+        ctx.objects.push({
           id: maskObjectId,
-          data: maskDict
-        })
+          data: maskDict,
+        });
       }
 
       // Build the image XObject
@@ -4018,63 +4447,67 @@ export class PDFWriter {
   /Width ${img.width}
   /Height ${img.height}
   /ColorSpace /${img.colorSpace}
-  /BitsPerComponent ${img.bitsPerComponent}`
+  /BitsPerComponent ${img.bitsPerComponent}`;
 
       // Add filter if present
       if (img.filter) {
-        imageDict += `\n  /Filter /${img.filter}`
+        imageDict += `\n  /Filter /${img.filter}`;
       }
 
       // Add mask reference if present
       if (maskObjectId !== null) {
-        const maskType = img.maskOptions?.type || 'luminosity'
+        const maskType = img.maskOptions?.type || 'luminosity';
         if (maskType === 'stencil') {
-          imageDict += `\n  /Mask ${maskObjectId} 0 R`
+          imageDict += `\n  /Mask ${maskObjectId} 0 R`;
         } else {
-          imageDict += `\n  /SMask ${maskObjectId} 0 R`
+          imageDict += `\n  /SMask ${maskObjectId} 0 R`;
         }
       }
 
       // Add interpolation (anti-aliasing for scaling)
       // For QR codes and binary images, interpolation should be false to prevent blurriness
-      const shouldInterpolate = img.interpolate !== false // Default to true if not specified
-      imageDict += `\n  /Interpolate ${shouldInterpolate}`
+      const shouldInterpolate = img.interpolate !== false; // Default to true if not specified
+      imageDict += `\n  /Interpolate ${shouldInterpolate}`;
 
       // Add data length
-      imageDict += `\n  /Length ${img.data.length}`
-      imageDict += `\n>>`
+      imageDict += `\n  /Length ${img.data.length}`;
+      imageDict += `\n>>`;
 
       // Add stream data
-      imageDict += `\nstream\n${img.data.toString('binary')}\nendstream`
+      imageDict += `\nstream\n${img.data.toString('binary')}\nendstream`;
 
-      objects.push({
+      ctx.objects.push({
         id: imageObjectId,
-        data: imageDict
-      })
-    })
+        data: imageDict,
+      });
+    });
+  }
 
-    // Create gradient shading and pattern objects
+  /**
+   * Build gradient shading and pattern objects.
+   */
+  private buildGradientObjects(ctx: GenerationContext): void {
     this.gradientManager.getAllGradients().forEach((value, hash) => {
-      const { id, gradient } = value
-      const shadingId = gradientShadingIds.get(hash)!
-      const patternId = gradientPatternIds.get(hash)!
+      const { id, gradient } = value;
+      const shadingId = ctx.gradientShadingIds.get(hash)!;
+      const patternId = ctx.gradientPatternIds.get(hash)!;
 
       // Determine if linear or radial
-      const isLinear = 'x1' in gradient && !('r0' in gradient)
+      const isLinear = 'x1' in gradient && !('r0' in gradient);
 
       if (isLinear) {
         // Linear (Axial) Gradient - Type 2
-        const g = gradient as LinearGradientOptions
+        const g = gradient as LinearGradientOptions;
 
         // Build color function for gradient stops
         // For simplicity, we'll use exponential interpolation for 2 stops
         // For more stops, we'd need stitching functions
-        const stops = g.colorStops
+        const stops = g.colorStops;
 
         if (stops.length === 2) {
           // Simple 2-color gradient
-          const [r0, g0, b0] = this.parseColor(stops[0].color)
-          const [r1, g1, b1] = this.parseColor(stops[1].color)
+          const [r0, g0, b0] = this.parseColor(stops[0].color);
+          const [r1, g1, b1] = this.parseColor(stops[1].color);
 
           // Shading dictionary (Type 2 - Axial)
           const shadingDict = `<<
@@ -4089,21 +4522,21 @@ export class PDFWriter {
     /N 1
   >>
   /Extend [true true]
->>`
+>>`;
 
-          objects.push({
+          ctx.objects.push({
             id: shadingId,
-            data: shadingDict
-          })
+            data: shadingDict,
+          });
         } else {
           // Multiple color stops - use stitching function
-          const functions: string[] = []
-          const bounds: number[] = []
-          const encode: number[] = []
+          const functions: string[] = [];
+          const bounds: number[] = [];
+          const encode: number[] = [];
 
           for (let i = 0; i < stops.length - 1; i++) {
-            const [r0, g0, b0] = this.parseColor(stops[i].color)
-            const [r1, g1, b1] = this.parseColor(stops[i + 1].color)
+            const [r0, g0, b0] = this.parseColor(stops[i].color);
+            const [r1, g1, b1] = this.parseColor(stops[i + 1].color);
 
             functions.push(`<<
       /FunctionType 2
@@ -4111,12 +4544,12 @@ export class PDFWriter {
       /C0 [${r0.toFixed(4)} ${g0.toFixed(4)} ${b0.toFixed(4)}]
       /C1 [${r1.toFixed(4)} ${g1.toFixed(4)} ${b1.toFixed(4)}]
       /N 1
-    >>`)
+    >>`);
 
             if (i < stops.length - 2) {
-              bounds.push(stops[i + 1].offset)
+              bounds.push(stops[i + 1].offset);
             }
-            encode.push(0, 1)
+            encode.push(0, 1);
           }
 
           const shadingDict = `<<
@@ -4133,22 +4566,22 @@ ${functions.join('\n')}
     /Encode [${encode.join(' ')}]
   >>
   /Extend [true true]
->>`
+>>`;
 
-          objects.push({
+          ctx.objects.push({
             id: shadingId,
-            data: shadingDict
-          })
+            data: shadingDict,
+          });
         }
       } else {
         // Radial Gradient - Type 3
-        const g = gradient as RadialGradientOptions
-        const stops = g.colorStops
+        const g = gradient as RadialGradientOptions;
+        const stops = g.colorStops;
 
         if (stops.length === 2) {
           // Simple 2-color gradient
-          const [r0, g0, b0] = this.parseColor(stops[0].color)
-          const [r1, g1, b1] = this.parseColor(stops[1].color)
+          const [r0, g0, b0] = this.parseColor(stops[0].color);
+          const [r1, g1, b1] = this.parseColor(stops[1].color);
 
           const shadingDict = `<<
   /ShadingType 3
@@ -4162,21 +4595,21 @@ ${functions.join('\n')}
     /N 1
   >>
   /Extend [true true]
->>`
+>>`;
 
-          objects.push({
+          ctx.objects.push({
             id: shadingId,
-            data: shadingDict
-          })
+            data: shadingDict,
+          });
         } else {
           // Multiple color stops
-          const functions: string[] = []
-          const bounds: number[] = []
-          const encode: number[] = []
+          const functions: string[] = [];
+          const bounds: number[] = [];
+          const encode: number[] = [];
 
           for (let i = 0; i < stops.length - 1; i++) {
-            const [r0, g0, b0] = this.parseColor(stops[i].color)
-            const [r1, g1, b1] = this.parseColor(stops[i + 1].color)
+            const [r0, g0, b0] = this.parseColor(stops[i].color);
+            const [r1, g1, b1] = this.parseColor(stops[i + 1].color);
 
             functions.push(`<<
       /FunctionType 2
@@ -4184,12 +4617,12 @@ ${functions.join('\n')}
       /C0 [${r0.toFixed(4)} ${g0.toFixed(4)} ${b0.toFixed(4)}]
       /C1 [${r1.toFixed(4)} ${g1.toFixed(4)} ${b1.toFixed(4)}]
       /N 1
-    >>`)
+    >>`);
 
             if (i < stops.length - 2) {
-              bounds.push(stops[i + 1].offset)
+              bounds.push(stops[i + 1].offset);
             }
-            encode.push(0, 1)
+            encode.push(0, 1);
           }
 
           const shadingDict = `<<
@@ -4206,12 +4639,12 @@ ${functions.join('\n')}
     /Encode [${encode.join(' ')}]
   >>
   /Extend [true true]
->>`
+>>`;
 
-          objects.push({
+          ctx.objects.push({
             id: shadingId,
-            data: shadingDict
-          })
+            data: shadingDict,
+          });
         }
       }
 
@@ -4220,72 +4653,84 @@ ${functions.join('\n')}
   /Type /Pattern
   /PatternType 2
   /Shading ${shadingId} 0 R
->>`
+>>`;
 
-      objects.push({
+      ctx.objects.push({
         id: patternId,
-        data: patternDict
-      })
-    })
+        data: patternDict,
+      });
+    });
+  }
 
-    // Create tiling pattern objects (Type 1 - Tiling pattern)
+  /**
+   * Build tiling pattern objects (Type 1).
+   */
+  private buildTilingPatternObjects(ctx: GenerationContext): void {
     this.patternManager.getAllPatterns().forEach((value, hash) => {
-      const { id, pattern } = value
-      const patternObjectId = tilingPatternIds.get(hash)!
+      const { id, pattern } = value;
+      const patternObjectId = ctx.tilingPatternIds.get(hash)!;
 
-      const xStep = pattern.xStep || pattern.width
-      const yStep = pattern.yStep || pattern.height
-      const colored = pattern.colored !== false  // Default to true
+      const xStep = pattern.xStep || pattern.width;
+      const yStep = pattern.yStep || pattern.height;
+      const colored = pattern.colored !== false; // Default to true
 
       // Create a temporary content stream for the pattern
-      const patternContent: string[] = []
+      const patternContent: string[] = [];
       const patternCtx = {
         moveTo: (x: number, y: number) => {
-          patternContent.push(`${x} ${y} m`)
+          patternContent.push(`${x} ${y} m`);
         },
         lineTo: (x: number, y: number) => {
-          patternContent.push(`${x} ${y} l`)
+          patternContent.push(`${x} ${y} l`);
         },
         rect: (x: number, y: number, width: number, height: number) => {
-          patternContent.push(`${x} ${y} ${width} ${height} re`)
+          patternContent.push(`${x} ${y} ${width} ${height} re`);
         },
         circle: (x: number, y: number, radius: number) => {
           // Draw circle using four Bezier curves
-          const k = 0.5522848
-          const ox = radius * k
-          const oy = radius * k
+          const k = 0.5522848;
+          const ox = radius * k;
+          const oy = radius * k;
 
-          patternContent.push(`${x + radius} ${y} m`)
-          patternContent.push(`${x + radius} ${y + oy} ${x + ox} ${y + radius} ${x} ${y + radius} c`)
-          patternContent.push(`${x - ox} ${y + radius} ${x - radius} ${y + oy} ${x - radius} ${y} c`)
-          patternContent.push(`${x - radius} ${y - oy} ${x - ox} ${y - radius} ${x} ${y - radius} c`)
-          patternContent.push(`${x + ox} ${y - radius} ${x + radius} ${y - oy} ${x + radius} ${y} c`)
+          patternContent.push(`${x + radius} ${y} m`);
+          patternContent.push(
+            `${x + radius} ${y + oy} ${x + ox} ${y + radius} ${x} ${y + radius} c`
+          );
+          patternContent.push(
+            `${x - ox} ${y + radius} ${x - radius} ${y + oy} ${x - radius} ${y} c`
+          );
+          patternContent.push(
+            `${x - radius} ${y - oy} ${x - ox} ${y - radius} ${x} ${y - radius} c`
+          );
+          patternContent.push(
+            `${x + ox} ${y - radius} ${x + radius} ${y - oy} ${x + radius} ${y} c`
+          );
         },
         setFillColor: (r: number, g: number, b: number) => {
-          patternContent.push(`${r} ${g} ${b} rg`)
+          patternContent.push(`${r} ${g} ${b} rg`);
         },
         setStrokeColor: (r: number, g: number, b: number) => {
-          patternContent.push(`${r} ${g} ${b} RG`)
+          patternContent.push(`${r} ${g} ${b} RG`);
         },
         setLineWidth: (width: number) => {
-          patternContent.push(`${width} w`)
+          patternContent.push(`${width} w`);
         },
         fill: () => {
-          patternContent.push('f')
+          patternContent.push('f');
         },
         stroke: () => {
-          patternContent.push('S')
+          patternContent.push('S');
         },
         fillAndStroke: () => {
-          patternContent.push('B')
-        }
-      }
+          patternContent.push('B');
+        },
+      };
 
       // Execute the draw function
-      pattern.draw(patternCtx)
+      pattern.draw(patternCtx);
 
-      const contentStream = patternContent.join('\n')
-      const contentLength = contentStream.length
+      const contentStream = patternContent.join('\n');
+      const contentLength = contentStream.length;
 
       // Create the pattern dictionary
       const patternDict = `<<
@@ -4303,31 +4748,42 @@ ${functions.join('\n')}
 >>
 stream
 ${contentStream}
-endstream`
+endstream`;
 
-      objects.push({
+      ctx.objects.push({
         id: patternObjectId,
-        data: patternDict
-      })
-    })
+        data: patternDict,
+      });
+    });
+  }
 
-    // Create Form XObject objects (Type 1 XObject - Form)
+  /**
+   * Build Form XObject objects (Type 1 XObject - Form).
+   */
+  private buildFormXObjectObjects(ctx: GenerationContext): void {
     this.formXObjects.forEach((value, name) => {
-      const { id, xobject } = value
-      const xobjectId = formXObjectIds.get(name)!
+      const { id, xobject } = value;
+      const xobjectId = ctx.formXObjectIds.get(name)!;
 
       // Create a temporary content stream for the Form XObject
-      const xobjectContent: string[] = []
+      const xobjectContent: string[] = [];
       const xobjectCtx = {
         // Path construction
         moveTo: (x: number, y: number) => {
-          xobjectContent.push(`${x} ${y} m`)
+          xobjectContent.push(`${x} ${y} m`);
         },
         lineTo: (x: number, y: number) => {
-          xobjectContent.push(`${x} ${y} l`)
+          xobjectContent.push(`${x} ${y} l`);
         },
-        bezierCurveTo: (cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number) => {
-          xobjectContent.push(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`)
+        bezierCurveTo: (
+          cp1x: number,
+          cp1y: number,
+          cp2x: number,
+          cp2y: number,
+          x: number,
+          y: number
+        ) => {
+          xobjectContent.push(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`);
         },
         quadraticCurveTo: (cpx: number, cpy: number, x: number, y: number) => {
           // Convert quadratic to cubic Bezier
@@ -4336,133 +4792,150 @@ endstream`
           // CP1 = P0 + 2/3(P1 - P0)
           // CP2 = P2 + 2/3(P1 - P2)
           // We need to get the current point - for simplicity, we'll use the v operator
-          xobjectContent.push(`${cpx} ${cpy} ${x} ${y} v`)
+          xobjectContent.push(`${cpx} ${cpy} ${x} ${y} v`);
         },
         rect: (x: number, y: number, width: number, height: number) => {
-          xobjectContent.push(`${x} ${y} ${width} ${height} re`)
+          xobjectContent.push(`${x} ${y} ${width} ${height} re`);
         },
         circle: (x: number, y: number, radius: number) => {
           // Draw circle using four Bezier curves
-          const k = 0.5522848
-          const ox = radius * k
-          const oy = radius * k
+          const k = 0.5522848;
+          const ox = radius * k;
+          const oy = radius * k;
 
-          xobjectContent.push(`${x + radius} ${y} m`)
-          xobjectContent.push(`${x + radius} ${y + oy} ${x + ox} ${y + radius} ${x} ${y + radius} c`)
-          xobjectContent.push(`${x - ox} ${y + radius} ${x - radius} ${y + oy} ${x - radius} ${y} c`)
-          xobjectContent.push(`${x - radius} ${y - oy} ${x - ox} ${y - radius} ${x} ${y - radius} c`)
-          xobjectContent.push(`${x + ox} ${y - radius} ${x + radius} ${y - oy} ${x + radius} ${y} c`)
+          xobjectContent.push(`${x + radius} ${y} m`);
+          xobjectContent.push(
+            `${x + radius} ${y + oy} ${x + ox} ${y + radius} ${x} ${y + radius} c`
+          );
+          xobjectContent.push(
+            `${x - ox} ${y + radius} ${x - radius} ${y + oy} ${x - radius} ${y} c`
+          );
+          xobjectContent.push(
+            `${x - radius} ${y - oy} ${x - ox} ${y - radius} ${x} ${y - radius} c`
+          );
+          xobjectContent.push(
+            `${x + ox} ${y - radius} ${x + radius} ${y - oy} ${x + radius} ${y} c`
+          );
         },
         ellipse: (x: number, y: number, radiusX: number, radiusY: number) => {
           // Draw ellipse using four Bezier curves
-          const k = 0.5522848
-          const ox = radiusX * k
-          const oy = radiusY * k
+          const k = 0.5522848;
+          const ox = radiusX * k;
+          const oy = radiusY * k;
 
-          xobjectContent.push(`${x + radiusX} ${y} m`)
-          xobjectContent.push(`${x + radiusX} ${y + oy} ${x + ox} ${y + radiusY} ${x} ${y + radiusY} c`)
-          xobjectContent.push(`${x - ox} ${y + radiusY} ${x - radiusX} ${y + oy} ${x - radiusX} ${y} c`)
-          xobjectContent.push(`${x - radiusX} ${y - oy} ${x - ox} ${y - radiusY} ${x} ${y - radiusY} c`)
-          xobjectContent.push(`${x + ox} ${y - radiusY} ${x + radiusX} ${y - oy} ${x + radiusX} ${y} c`)
+          xobjectContent.push(`${x + radiusX} ${y} m`);
+          xobjectContent.push(
+            `${x + radiusX} ${y + oy} ${x + ox} ${y + radiusY} ${x} ${y + radiusY} c`
+          );
+          xobjectContent.push(
+            `${x - ox} ${y + radiusY} ${x - radiusX} ${y + oy} ${x - radiusX} ${y} c`
+          );
+          xobjectContent.push(
+            `${x - radiusX} ${y - oy} ${x - ox} ${y - radiusY} ${x} ${y - radiusY} c`
+          );
+          xobjectContent.push(
+            `${x + ox} ${y - radiusY} ${x + radiusX} ${y - oy} ${x + radiusX} ${y} c`
+          );
         },
         path: (svgPath: string) => {
           // Parse and convert SVG path
-          const converter = new SVGPathConverter()
+          const converter = new SVGPathConverter();
           converter.convert(svgPath, {
             moveTo: (x, y) => xobjectContent.push(`${x} ${y} m`),
             lineTo: (x, y) => xobjectContent.push(`${x} ${y} l`),
-            bezierCurveTo: (cp1x, cp1y, cp2x, cp2y, x, y) => xobjectContent.push(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`),
+            bezierCurveTo: (cp1x, cp1y, cp2x, cp2y, x, y) =>
+              xobjectContent.push(`${cp1x} ${cp1y} ${cp2x} ${cp2y} ${x} ${y} c`),
             quadraticCurveTo: (cpx, cpy, x, y) => xobjectContent.push(`${cpx} ${cpy} ${x} ${y} v`),
-            closePath: () => xobjectContent.push('h')
-          })
+            closePath: () => xobjectContent.push('h'),
+          });
         },
 
         // Path operations
         closePath: () => {
-          xobjectContent.push('h')
+          xobjectContent.push('h');
         },
         fill: () => {
-          xobjectContent.push('f')
+          xobjectContent.push('f');
         },
         stroke: () => {
-          xobjectContent.push('S')
+          xobjectContent.push('S');
         },
         fillAndStroke: () => {
-          xobjectContent.push('B')
+          xobjectContent.push('B');
         },
         clip: () => {
-          xobjectContent.push('W n')
+          xobjectContent.push('W n');
         },
 
         // Colors
         setFillColor: (r: number, g: number, b: number) => {
-          xobjectContent.push(`${r} ${g} ${b} rg`)
+          xobjectContent.push(`${r} ${g} ${b} rg`);
         },
         setStrokeColor: (r: number, g: number, b: number) => {
-          xobjectContent.push(`${r} ${g} ${b} RG`)
+          xobjectContent.push(`${r} ${g} ${b} RG`);
         },
 
         // Graphics state
         setLineWidth: (width: number) => {
-          xobjectContent.push(`${width} w`)
+          xobjectContent.push(`${width} w`);
         },
         setLineCap: (cap: 0 | 1 | 2) => {
-          xobjectContent.push(`${cap} J`)
+          xobjectContent.push(`${cap} J`);
         },
         setLineJoin: (join: 0 | 1 | 2) => {
-          xobjectContent.push(`${join} j`)
+          xobjectContent.push(`${join} j`);
         },
         setDashPattern: (pattern: number[], phase: number = 0) => {
-          xobjectContent.push(`[${pattern.join(' ')}] ${phase} d`)
+          xobjectContent.push(`[${pattern.join(' ')}] ${phase} d`);
         },
         setOpacity: (opacity: number) => {
-          xobjectContent.push(`/GS_alpha gs`)
-          xobjectContent.push(`${opacity} ca`)
-          xobjectContent.push(`${opacity} CA`)
+          xobjectContent.push(`/GS_alpha gs`);
+          xobjectContent.push(`${opacity} ca`);
+          xobjectContent.push(`${opacity} CA`);
         },
 
         // Text (simplified version)
         // Note: Uses Helvetica font which must be available in the page resources
         text: (text: string, x: number, y: number, fontSize: number = 12) => {
-          const escapedText = this.escapePDFString(text)
+          const escapedText = this.escapePDFString(text);
           // Ensure Helvetica is registered
-          const fontId = this.getFontId('Helvetica')
-          xobjectContent.push('BT')
-          xobjectContent.push(`/${fontId} ${fontSize} Tf`)
-          xobjectContent.push(`${x} ${y} Td`)
-          xobjectContent.push(`(${escapedText}) Tj`)
-          xobjectContent.push('ET')
+          const fontId = this.getFontId('Helvetica');
+          xobjectContent.push('BT');
+          xobjectContent.push(`/${fontId} ${fontSize} Tf`);
+          xobjectContent.push(`${x} ${y} Td`);
+          xobjectContent.push(`(${escapedText}) Tj`);
+          xobjectContent.push('ET');
         },
 
         // Transformations
         translate: (x: number, y: number) => {
-          xobjectContent.push(`1 0 0 1 ${x} ${y} cm`)
+          xobjectContent.push(`1 0 0 1 ${x} ${y} cm`);
         },
         rotate: (angle: number) => {
-          const rad = (angle * Math.PI) / 180
-          const cos = Math.cos(rad)
-          const sin = Math.sin(rad)
-          xobjectContent.push(`${cos} ${sin} ${-sin} ${cos} 0 0 cm`)
+          const rad = (angle * Math.PI) / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+          xobjectContent.push(`${cos} ${sin} ${-sin} ${cos} 0 0 cm`);
         },
         scale: (sx: number, sy?: number) => {
-          const scaleY = sy !== undefined ? sy : sx
-          xobjectContent.push(`${sx} 0 0 ${scaleY} 0 0 cm`)
+          const scaleY = sy !== undefined ? sy : sx;
+          xobjectContent.push(`${sx} 0 0 ${scaleY} 0 0 cm`);
         },
 
         // State
         saveGraphicsState: () => {
-          xobjectContent.push('q')
+          xobjectContent.push('q');
         },
         restoreGraphicsState: () => {
-          xobjectContent.push('Q')
-        }
-      }
+          xobjectContent.push('Q');
+        },
+      };
 
       // Execute the draw function
-      xobject.draw(xobjectCtx)
+      xobject.draw(xobjectCtx);
 
-      const contentStream = xobjectContent.join('\n')
-      const contentLength = contentStream.length
+      const contentStream = xobjectContent.join('\n');
+      const contentLength = contentStream.length;
 
       // Create the Form XObject dictionary
       // Note: We use a minimal Resources dictionary. Fonts and other resources
@@ -4478,26 +4951,31 @@ endstream`
 >>
 stream
 ${contentStream}
-endstream`
+endstream`;
 
-      objects.push({
+      ctx.objects.push({
         id: xobjectId,
-        data: xobjectDict
-      })
-    })
+        data: xobjectDict,
+      });
+    });
+  }
 
+  /**
+   * Build OCG (Layer) and OCProperties objects.
+   */
+  private buildLayerObjects(ctx: GenerationContext): void {
     // Create Optional Content Group (OCG/Layer) objects
     this.layerManager.getAllLayers().forEach((value, name) => {
-      const { id, options } = value
-      const layerId = layerObjectIds.get(name)!
+      const { id, options } = value;
+      const layerId = ctx.layerObjectIds.get(name)!;
 
       // Build intent array
-      let intentStr = '/View'
+      let intentStr = '/View';
       if (options.intent) {
         if (Array.isArray(options.intent)) {
-          intentStr = `[${options.intent.map(i => `/${i}`).join(' ')}]`
+          intentStr = `[${options.intent.map((i) => `/${i}`).join(' ')}]`;
         } else {
-          intentStr = `/${options.intent}`
+          intentStr = `/${options.intent}`;
         }
       }
 
@@ -4506,49 +4984,52 @@ endstream`
   /Type /OCG
   /Name (${this.escapePDFString(options.name)})
   /Intent ${intentStr}
->>`
+>>`;
 
-      objects.push({
+      ctx.objects.push({
         id: layerId,
-        data: ocgDict
-      })
-    })
+        data: ocgDict,
+      });
+    });
 
     // Create OCProperties dictionary (if we have layers)
-    if (this.layerManager.getLayerCount() > 0 && ocPropertiesId > 0) {
+    if (this.layerManager.getLayerCount() > 0 && ctx.ocPropertiesId > 0) {
       // Build arrays of OCGs
-      const ocgsRefs: string[] = []
-      const onOCGs: string[] = []
-      const offOCGs: string[] = []
+      const ocgsRefs: string[] = [];
+      const onOCGs: string[] = [];
+      const offOCGs: string[] = [];
 
       this.layerManager.getAllLayers().forEach((value, name) => {
-        const layerId = layerObjectIds.get(name)!
-        ocgsRefs.push(`${layerId} 0 R`)
+        const layerId = ctx.layerObjectIds.get(name)!;
+        ocgsRefs.push(`${layerId} 0 R`);
 
-        const visible = value.options.visible !== false  // Default to true
+        const visible = value.options.visible !== false; // Default to true
         if (visible) {
-          onOCGs.push(`${layerId} 0 R`)
+          onOCGs.push(`${layerId} 0 R`);
         } else {
-          offOCGs.push(`${layerId} 0 R`)
+          offOCGs.push(`${layerId} 0 R`);
         }
-      })
+      });
 
       // Build usage dictionary arrays
-      const printOCGs: string[] = []
-      const exportOCGs: string[] = []
+      const printOCGs: string[] = [];
+      const exportOCGs: string[] = [];
 
       this.layerManager.getAllLayers().forEach((value, name) => {
-        const layerId = layerObjectIds.get(name)!
-        const printable = value.options.printable !== undefined ? value.options.printable : (value.options.visible !== false)
-        const exportable = value.options.exportable !== false
+        const layerId = ctx.layerObjectIds.get(name)!;
+        const printable =
+          value.options.printable !== undefined
+            ? value.options.printable
+            : value.options.visible !== false;
+        const exportable = value.options.exportable !== false;
 
         if (printable) {
-          printOCGs.push(`${layerId} 0 R`)
+          printOCGs.push(`${layerId} 0 R`);
         }
         if (exportable) {
-          exportOCGs.push(`${layerId} 0 R`)
+          exportOCGs.push(`${layerId} 0 R`);
         }
-      })
+      });
 
       const ocPropertiesDict = `<<
   /OCGs [${ocgsRefs.join(' ')}]
@@ -4559,28 +5040,27 @@ endstream`
     ${offOCGs.length > 0 ? `/OFF [${offOCGs.join(' ')}]` : ''}
     /Order [${ocgsRefs.join(' ')}]
   >>
->>`
+>>`;
 
-      objects.push({
-        id: ocPropertiesId,
-        data: ocPropertiesDict
-      })
+      ctx.objects.push({
+        id: ctx.ocPropertiesId,
+        data: ocPropertiesDict,
+      });
     }
+  }
 
-    // Create link annotation objects
+  /**
+   * Build legacy per-page link annotation objects.
+   */
+  private buildLegacyAnnotationObjects(ctx: GenerationContext): void {
     this.pages.forEach((pageData, pageIndex) => {
-      const annotIds = annotationObjectIds.get(pageIndex) || []
+      const annotIds = ctx.annotationObjectIds.get(pageIndex) || [];
       pageData.annotations.forEach((annot, annotIndex) => {
-        const annotObjectId = annotIds[annotIndex]
+        const annotObjectId = annotIds[annotIndex];
 
         // Create link annotation
         // Note: PDF coordinates are bottom-left origin
-        const rect = [
-          annot.x,
-          annot.y,
-          annot.x + annot.width,
-          annot.y + annot.height
-        ]
+        const rect = [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height];
 
         const annotDict = `<<
   /Type /Annot
@@ -4591,39 +5071,45 @@ endstream`
     /S /URI
     /URI (${this.escapePDFString(annot.url)})
   >>
->>`
+>>`;
 
-        objects.push({
+        ctx.objects.push({
           id: annotObjectId,
-          data: annotDict
-        })
-      })
-    })
+          data: annotDict,
+        });
+      });
+    });
+  }
 
-    // Create new annotation objects (text, highlight, etc.)
+  /**
+   * Build advanced annotation objects (text, highlight, etc.).
+   */
+  private buildAdvancedAnnotationObjects(ctx: GenerationContext): void {
     this.annotationManager.getAllAnnotations().forEach((annot, index) => {
-      const annotObjectId = newAnnotationObjectIds[index]
-      const pageObjId = firstPageObjectId + (annot.page * 3) + 2
+      const annotObjectId = ctx.newAnnotationObjectIds[index];
+      const pageObjId = ctx.firstPageObjectId + annot.page * 3 + 2;
 
       // Common properties
-      const now = annot.creationDate || new Date()
-      const modDate = annot.modificationDate || now
-      const author = annot.author ? this.escapePDFString(annot.author) : this.escapePDFString(getConfig().defaultAnnotationAuthor)
-      const contents = annot.contents ? this.escapePDFString(annot.contents) : ''
-      const subject = annot.subject ? this.escapePDFString(annot.subject) : ''
+      const now = annot.creationDate || new Date();
+      const modDate = annot.modificationDate || now;
+      const author = annot.author
+        ? this.escapePDFString(annot.author)
+        : this.escapePDFString(getConfig().defaultAnnotationAuthor);
+      const contents = annot.contents ? this.escapePDFString(annot.contents) : '';
+      const subject = annot.subject ? this.escapePDFString(annot.subject) : '';
 
       // Parse color
-      const color = annot.color || [1, 1, 0]  // Default yellow
-      const colorArray = Array.isArray(color) ? color : this.parseColor(color)
+      const color = annot.color || [1, 1, 0]; // Default yellow
+      const colorArray = Array.isArray(color) ? color : this.parseColor(color);
 
-      let annotDict = ''
+      let annotDict = '';
 
       switch (annot.type) {
         case 'text': {
           // Text annotation (sticky note)
-          const icon = annot.icon || 'Note'
-          const open = annot.open ? 'true' : 'false'
-          const rect = [annot.x, annot.y, annot.x + 20, annot.y + 20]  // Standard icon size
+          const icon = annot.icon || 'Note';
+          const open = annot.open ? 'true' : 'false';
+          const rect = [annot.x, annot.y, annot.x + 20, annot.y + 20]; // Standard icon size
 
           annotDict = `<<
   /Type /Annot
@@ -4638,8 +5124,8 @@ endstream`
   /Subj (${subject})
   /CreationDate (${this.formatPDFDate(now)})
   /M (${this.formatPDFDate(modDate)})
->>`
-          break
+>>`;
+          break;
         }
 
         case 'highlight':
@@ -4647,23 +5133,23 @@ endstream`
         case 'strikeout': {
           // Text markup annotations
           const subtypeMap = {
-            'highlight': 'Highlight',
-            'underline': 'Underline',
-            'strikeout': 'StrikeOut'
-          }
-          const subtype = subtypeMap[annot.type]
+            highlight: 'Highlight',
+            underline: 'Underline',
+            strikeout: 'StrikeOut',
+          };
+          const subtype = subtypeMap[annot.type];
 
           // QuadPoints define the highlighted area
-          const quadPoints = annot.quadPoints.join(' ')
+          const quadPoints = annot.quadPoints.join(' ');
 
           // Calculate bounding rect from quadPoints
-          const xs = annot.quadPoints.filter((_, i) => i % 2 === 0)
-          const ys = annot.quadPoints.filter((_, i) => i % 2 === 1)
-          const minX = Math.min(...xs)
-          const minY = Math.min(...ys)
-          const maxX = Math.max(...xs)
-          const maxY = Math.max(...ys)
-          const rect = [minX, minY, maxX, maxY]
+          const xs = annot.quadPoints.filter((_, i) => i % 2 === 0);
+          const ys = annot.quadPoints.filter((_, i) => i % 2 === 1);
+          const minX = Math.min(...xs);
+          const minY = Math.min(...ys);
+          const maxX = Math.max(...xs);
+          const maxY = Math.max(...ys);
+          const rect = [minX, minY, maxX, maxY];
 
           annotDict = `<<
   /Type /Annot
@@ -4677,18 +5163,24 @@ endstream`
   /Subj (${subject})
   /CreationDate (${this.formatPDFDate(now)})
   /M (${this.formatPDFDate(modDate)})
->>`
-          break
+>>`;
+          break;
         }
 
         case 'square':
         case 'circle': {
           // Shape annotations
-          const subtype = annot.type === 'square' ? 'Square' : 'Circle'
-          const borderWidth = annot.borderWidth || 1
-          const rect = annot.type === 'square'
-            ? [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height]
-            : [annot.x - annot.width/2, annot.y - annot.height/2, annot.x + annot.width/2, annot.y + annot.height/2]
+          const subtype = annot.type === 'square' ? 'Square' : 'Circle';
+          const borderWidth = annot.borderWidth || 1;
+          const rect =
+            annot.type === 'square'
+              ? [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height]
+              : [
+                  annot.x - annot.width / 2,
+                  annot.y - annot.height / 2,
+                  annot.x + annot.width / 2,
+                  annot.y + annot.height / 2,
+                ];
 
           annotDict = `<<
   /Type /Annot
@@ -4701,29 +5193,31 @@ endstream`
   /T (${author})
   /Subj (${subject})
   /CreationDate (${this.formatPDFDate(now)})
-  /M (${this.formatPDFDate(modDate)})`
+  /M (${this.formatPDFDate(modDate)})`;
 
           if (annot.fillColor) {
-            const fillColorArray = Array.isArray(annot.fillColor) ? annot.fillColor : this.parseColor(annot.fillColor)
-            annotDict += `\n  /IC [${fillColorArray.join(' ')}]`
+            const fillColorArray = Array.isArray(annot.fillColor)
+              ? annot.fillColor
+              : this.parseColor(annot.fillColor);
+            annotDict += `\n  /IC [${fillColorArray.join(' ')}]`;
           }
 
-          annotDict += `\n>>`
-          break
+          annotDict += `\n>>`;
+          break;
         }
 
         case 'freetext': {
           // Free text annotation
-          const fontSize = annot.fontSize || 12
-          const align = annot.align || 'left'
-          const borderWidth = annot.borderWidth || 1
-          const rect = [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height]
+          const fontSize = annot.fontSize || 12;
+          const align = annot.align || 'left';
+          const borderWidth = annot.borderWidth || 1;
+          const rect = [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height];
 
-          const fontColor = annot.fontColor || [0, 0, 0]
-          const fontColorArray = Array.isArray(fontColor) ? fontColor : this.parseColor(fontColor)
+          const fontColor = annot.fontColor || [0, 0, 0];
+          const fontColorArray = Array.isArray(fontColor) ? fontColor : this.parseColor(fontColor);
 
           // Quadding: 0 = left, 1 = center, 2 = right
-          const quadding = align === 'center' ? 1 : (align === 'right' ? 2 : 0)
+          const quadding = align === 'center' ? 1 : align === 'right' ? 2 : 0;
 
           annotDict = `<<
   /Type /Annot
@@ -4733,11 +5227,13 @@ endstream`
   /P ${pageObjId} 0 R
   /DA (/Helvetica ${fontSize} Tf ${fontColorArray.join(' ')} rg)
   /Q ${quadding}
-  /BS << /W ${borderWidth} /S /S >>`
+  /BS << /W ${borderWidth} /S /S >>`;
 
           if (annot.backgroundColor) {
-            const bgColorArray = Array.isArray(annot.backgroundColor) ? annot.backgroundColor : this.parseColor(annot.backgroundColor)
-            annotDict += `\n  /C [${bgColorArray.join(' ')}]`
+            const bgColorArray = Array.isArray(annot.backgroundColor)
+              ? annot.backgroundColor
+              : this.parseColor(annot.backgroundColor);
+            annotDict += `\n  /C [${bgColorArray.join(' ')}]`;
           }
 
           annotDict += `
@@ -4745,14 +5241,14 @@ endstream`
   /Subj (${subject})
   /CreationDate (${this.formatPDFDate(now)})
   /M (${this.formatPDFDate(modDate)})
->>`
-          break
+>>`;
+          break;
         }
 
         case 'stamp': {
           // Stamp annotation
-          const rect = [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height]
-          const rotation = annot.rotation || 0
+          const rect = [annot.x, annot.y, annot.x + annot.width, annot.y + annot.height];
+          const rotation = annot.rotation || 0;
 
           annotDict = `<<
   /Type /Annot
@@ -4765,35 +5261,37 @@ endstream`
   /T (${author})
   /Subj (${subject})
   /CreationDate (${this.formatPDFDate(now)})
-  /M (${this.formatPDFDate(modDate)})`
+  /M (${this.formatPDFDate(modDate)})`;
 
           if (rotation !== 0) {
-            annotDict += `\n  /Rotate ${rotation}`
+            annotDict += `\n  /Rotate ${rotation}`;
           }
 
-          annotDict += `\n>>`
-          break
+          annotDict += `\n>>`;
+          break;
         }
 
         case 'ink': {
           // Ink annotation (freehand drawing)
-          const borderWidth = annot.borderWidth || 1
+          const borderWidth = annot.borderWidth || 1;
 
           // InkList is array of strokes, each stroke is array of points
-          const inkListStr = annot.inkLists.map(stroke => {
-            const points = stroke.flat().join(' ')
-            return `[${points}]`
-          }).join(' ')
+          const inkListStr = annot.inkLists
+            .map((stroke) => {
+              const points = stroke.flat().join(' ');
+              return `[${points}]`;
+            })
+            .join(' ');
 
           // Calculate bounding rect
-          const allPoints = annot.inkLists.flat()
-          const xs = allPoints.map(p => p[0])
-          const ys = allPoints.map(p => p[1])
-          const minX = Math.min(...xs)
-          const minY = Math.min(...ys)
-          const maxX = Math.max(...xs)
-          const maxY = Math.max(...ys)
-          const rect = [minX, minY, maxX, maxY]
+          const allPoints = annot.inkLists.flat();
+          const xs = allPoints.map((p) => p[0]);
+          const ys = allPoints.map((p) => p[1]);
+          const minX = Math.min(...xs);
+          const minY = Math.min(...ys);
+          const maxX = Math.max(...xs);
+          const maxY = Math.max(...ys);
+          const rect = [minX, minY, maxX, maxY];
 
           annotDict = `<<
   /Type /Annot
@@ -4808,49 +5306,54 @@ endstream`
   /Subj (${subject})
   /CreationDate (${this.formatPDFDate(now)})
   /M (${this.formatPDFDate(modDate)})
->>`
-          break
+>>`;
+          break;
         }
       }
 
       if (annotDict) {
-        objects.push({
+        ctx.objects.push({
           id: annotObjectId,
-          data: annotDict
-        })
+          data: annotDict,
+        });
       }
-    })
+    });
+  }
 
-    // Create bookmark/outline objects
-    if (outlinesRootId && this.bookmarks.length > 0) {
+  /**
+   * Build bookmark/outline objects.
+   */
+  private buildBookmarkObjects(ctx: GenerationContext): void {
+    if (ctx.outlinesRootId && this.bookmarks.length > 0) {
       // Helper to generate destination array
       const generateDestination = (dest: BookmarkDestination | undefined): string => {
         if (!dest) {
           // Default: first page, fit to window
-          return `[${firstPageObjectId + 2} 0 R /Fit]`
+          return `[${ctx.firstPageObjectId + 2} 0 R /Fit]`;
         }
 
-        const pageObjId = firstPageObjectId + (dest.page * 3) + 2
-        const fit = dest.fit || 'Fit'
+        const pageObjId = ctx.firstPageObjectId + dest.page * 3 + 2;
+        const fit = dest.fit || 'Fit';
 
         switch (fit) {
           case 'Fit':
-            return `[${pageObjId} 0 R /Fit]`
+            return `[${pageObjId} 0 R /Fit]`;
           case 'FitH':
-            return `[${pageObjId} 0 R /FitH ${dest.y !== undefined ? dest.y : 'null'}]`
+            return `[${pageObjId} 0 R /FitH ${dest.y !== undefined ? dest.y : 'null'}]`;
           case 'FitV':
-            return `[${pageObjId} 0 R /FitV ${dest.x !== undefined ? dest.x : 'null'}]`
+            return `[${pageObjId} 0 R /FitV ${dest.x !== undefined ? dest.x : 'null'}]`;
           case 'FitB':
-            return `[${pageObjId} 0 R /FitB]`
-          case 'XYZ':
-            const x = dest.x !== undefined ? dest.x : 'null'
-            const y = dest.y !== undefined ? dest.y : 'null'
-            const zoom = dest.zoom !== undefined ? dest.zoom : 'null'
-            return `[${pageObjId} 0 R /XYZ ${x} ${y} ${zoom}]`
+            return `[${pageObjId} 0 R /FitB]`;
+          case 'XYZ': {
+            const x = dest.x !== undefined ? dest.x : 'null';
+            const y = dest.y !== undefined ? dest.y : 'null';
+            const zoom = dest.zoom !== undefined ? dest.zoom : 'null';
+            return `[${pageObjId} 0 R /XYZ ${x} ${y} ${zoom}]`;
+          }
           default:
-            return `[${pageObjId} 0 R /Fit]`
+            return `[${pageObjId} 0 R /Fit]`;
         }
-      }
+      };
 
       // Recursive function to generate bookmark objects
       const generateBookmarkObjects = (
@@ -4858,76 +5361,77 @@ endstream`
         parentId: number | null,
         level: number = 0
       ): number[] => {
-        const bookmarkIds: number[] = []
+        const bookmarkIds: number[] = [];
 
         bookmarks.forEach((bookmark, index) => {
-          const bookmarkId = bookmarkObjectIds.get(bookmark)!
-          bookmarkIds.push(bookmarkId)
+          const bookmarkId = ctx.bookmarkObjectIds.get(bookmark)!;
+          bookmarkIds.push(bookmarkId);
 
           // Get prev and next sibling IDs
-          const prevId = index > 0 ? bookmarkObjectIds.get(bookmarks[index - 1])! : null
-          const nextId = index < bookmarks.length - 1 ? bookmarkObjectIds.get(bookmarks[index + 1])! : null
+          const prevId = index > 0 ? ctx.bookmarkObjectIds.get(bookmarks[index - 1])! : null;
+          const nextId =
+            index < bookmarks.length - 1 ? ctx.bookmarkObjectIds.get(bookmarks[index + 1])! : null;
 
           // Build bookmark object
           let bookmarkData = `<<
-  /Title (${this.escapePDFString(bookmark.title)})`
+  /Title (${this.escapePDFString(bookmark.title)})`;
 
           // Parent reference
           if (parentId) {
-            bookmarkData += `\n  /Parent ${parentId} 0 R`
+            bookmarkData += `\n  /Parent ${parentId} 0 R`;
           }
 
           // Prev/Next references
           if (prevId) {
-            bookmarkData += `\n  /Prev ${prevId} 0 R`
+            bookmarkData += `\n  /Prev ${prevId} 0 R`;
           }
           if (nextId) {
-            bookmarkData += `\n  /Next ${nextId} 0 R`
+            bookmarkData += `\n  /Next ${nextId} 0 R`;
           }
 
           // Destination
           if (bookmark.destination) {
-            bookmarkData += `\n  /Dest ${generateDestination(bookmark.destination)}`
+            bookmarkData += `\n  /Dest ${generateDestination(bookmark.destination)}`;
           }
 
           // Children
           if (bookmark.children && bookmark.children.length > 0) {
-            const childIds = generateBookmarkObjects(bookmark.children, bookmarkId, level + 1)
-            bookmarkData += `\n  /First ${childIds[0]} 0 R`
-            bookmarkData += `\n  /Last ${childIds[childIds.length - 1]} 0 R`
+            const childIds = generateBookmarkObjects(bookmark.children, bookmarkId, level + 1);
+            bookmarkData += `\n  /First ${childIds[0]} 0 R`;
+            bookmarkData += `\n  /Last ${childIds[childIds.length - 1]} 0 R`;
 
             // Count (positive if open, negative if closed)
-            const count = bookmark.open !== false ? childIds.length : -childIds.length
-            bookmarkData += `\n  /Count ${count}`
+            const count = bookmark.open !== false ? childIds.length : -childIds.length;
+            bookmarkData += `\n  /Count ${count}`;
           }
 
           // Color (optional)
           if (bookmark.color) {
-            const [r, g, b] = this.parseColor(bookmark.color)
-            bookmarkData += `\n  /C [${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)}]`
+            const [r, g, b] = this.parseColor(bookmark.color);
+            bookmarkData += `\n  /C [${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)}]`;
           }
 
           // Flags (bold/italic)
           if (bookmark.bold || bookmark.italic) {
-            let flags = 0
-            if (bookmark.italic) flags |= 1
-            if (bookmark.bold) flags |= 2
-            bookmarkData += `\n  /F ${flags}`
+            let flags = 0;
+            if (bookmark.italic) flags |= 1;
+            if (bookmark.bold) flags |= 2;
+            bookmarkData += `\n  /F ${flags}`;
           }
 
-          bookmarkData += `\n>>`
+          bookmarkData += `\n>>`;
 
-          objects.push({
+          ctx.objects.push({
             id: bookmarkId,
-            data: bookmarkData
-          })
-        })
+            data: bookmarkData,
+          });
+        });
 
-        return bookmarkIds
-      }
+        return bookmarkIds;
+      };
 
       // Generate all bookmark objects
-      const rootBookmarkIds = generateBookmarkObjects(this.bookmarks, outlinesRootId, 0)
+      const rootBookmarkIds = generateBookmarkObjects(this.bookmarks, ctx.outlinesRootId, 0);
 
       // Create Outlines root object
       const outlinesData = `<<
@@ -4935,50 +5439,55 @@ endstream`
   /First ${rootBookmarkIds[0]} 0 R
   /Last ${rootBookmarkIds[rootBookmarkIds.length - 1]} 0 R
   /Count ${rootBookmarkIds.length}
->>`
+>>`;
 
-      objects.push({
-        id: outlinesRootId,
-        data: outlinesData
-      })
+      ctx.objects.push({
+        id: ctx.outlinesRootId,
+        data: outlinesData,
+      });
     }
+  }
 
-    // Create file attachment objects
-    // Document-level attachments
-    if (this.attachments.length > 0 && namesTreeId) {
-      const fs = PlatformFactory.getFileSystem()
+  /**
+   * Build document-level file attachment objects (async).
+   */
+  private async buildDocumentAttachmentObjects(ctx: GenerationContext): Promise<void> {
+    if (this.attachments.length > 0 && ctx.namesTreeId) {
+      const fs = PlatformFactory.getFileSystem();
 
       for (let index = 0; index < this.attachments.length; index++) {
-        const attachment = this.attachments[index]
-        const embeddedFileId = attachmentEmbeddedFileIds[index]
-        const fileSpecId = attachmentFileSpecIds[index]
+        const attachment = this.attachments[index];
+        const embeddedFileId = ctx.attachmentEmbeddedFileIds[index];
+        const fileSpecId = ctx.attachmentFileSpecIds[index];
 
         // Load file data (async now)
-        let fileData: Buffer
+        let fileData: Buffer;
         if (typeof attachment.file === 'string') {
-          fileData = await fs.readFile(attachment.file)
+          fileData = await fs.readFile(attachment.file);
         } else {
-          fileData = attachment.file
+          fileData = attachment.file;
         }
 
         // Compress file data
-        let compressedBuffer: Buffer
+        let compressedBuffer: Buffer;
         try {
-          const compressedData = pako.deflate(fileData)
-          compressedBuffer = Buffer.from(compressedData)
+          const compressedData = pako.deflate(fileData);
+          compressedBuffer = Buffer.from(compressedData);
         } catch (error) {
           throw new CompressionError(
             `Failed to compress file attachment '${attachment.name}': ${error instanceof Error ? error.message : 'Unknown error'}`,
             error instanceof Error ? error : undefined
-          )
+          );
         }
 
         // Get file info
-        const fileName = this.escapePDFString(attachment.name)
-        const description = attachment.description ? this.escapePDFString(attachment.description) : fileName
-        const mimeType = attachment.mimeType || 'application/octet-stream'
-        const creationDate = attachment.creationDate || new Date()
-        const modDate = attachment.modificationDate || creationDate
+        const fileName = this.escapePDFString(attachment.name);
+        const description = attachment.description
+          ? this.escapePDFString(attachment.description)
+          : fileName;
+        const mimeType = attachment.mimeType || 'application/octet-stream';
+        const creationDate = attachment.creationDate || new Date();
+        const modDate = attachment.modificationDate || creationDate;
 
         // Create EmbeddedFile stream
         const embeddedFileData = `<<
@@ -4994,12 +5503,12 @@ endstream`
 >>
 stream
 ${compressedBuffer.toString('binary')}
-endstream`
+endstream`;
 
-        objects.push({
+        ctx.objects.push({
           id: embeddedFileId,
-          data: embeddedFileData
-        })
+          data: embeddedFileData,
+        });
 
         // Create FileSpec dictionary
         const fileSpecData = `<<
@@ -5010,70 +5519,78 @@ endstream`
   /EF <<
     /F ${embeddedFileId} 0 R
   >>
->>`
+>>`;
 
-        objects.push({
+        ctx.objects.push({
           id: fileSpecId,
-          data: fileSpecData
-        })
+          data: fileSpecData,
+        });
       }
 
       // Create Names dictionary
-      const namesArray = this.attachments.map((attachment, index) => {
-        const fileName = this.escapePDFString(attachment.name)
-        const fileSpecId = attachmentFileSpecIds[index]
-        return `(${fileName}) ${fileSpecId} 0 R`
-      }).join(' ')
+      const namesArray = this.attachments
+        .map((attachment, index) => {
+          const fileName = this.escapePDFString(attachment.name);
+          const fileSpecId = ctx.attachmentFileSpecIds[index];
+          return `(${fileName}) ${fileSpecId} 0 R`;
+        })
+        .join(' ');
 
       const namesData = `<<
   /EmbeddedFiles <<
     /Names [${namesArray}]
   >>
->>`
+>>`;
 
-      objects.push({
-        id: namesTreeId,
-        data: namesData
-      })
+      ctx.objects.push({
+        id: ctx.namesTreeId,
+        data: namesData,
+      });
     }
+  }
 
-    // Page-level file attachment annotations
+  /**
+   * Build page-level file attachment annotation objects (async).
+   */
+  private async buildAttachmentAnnotationObjects(ctx: GenerationContext): Promise<void> {
     if (this.annotationManager.getAllAttachmentAnnotations().length > 0) {
-      const attachmentOffset = this.attachments.length
-      const fs = PlatformFactory.getFileSystem()
-      const attachmentAnnotations = this.annotationManager.getAllAttachmentAnnotations()
+      const attachmentOffset = this.attachments.length;
+      const fs = PlatformFactory.getFileSystem();
+      const attachmentAnnotations = this.annotationManager.getAllAttachmentAnnotations();
 
       for (let index = 0; index < attachmentAnnotations.length; index++) {
-        const annotation = attachmentAnnotations[index]
-        const annotationId = attachmentAnnotationIds[index]
-        const embeddedFileId = attachmentEmbeddedFileIds[attachmentOffset + index]
-        const fileSpecId = attachmentFileSpecIds[attachmentOffset + index]
+        const annotation = attachmentAnnotations[index];
+        const annotationId = ctx.attachmentAnnotationIds[index];
+        const embeddedFileId = ctx.attachmentEmbeddedFileIds[attachmentOffset + index];
+        const fileSpecId = ctx.attachmentFileSpecIds[attachmentOffset + index];
 
         // Load file data (async now)
-        let fileData: Buffer
+        let fileData: Buffer;
         if (typeof annotation.file === 'string') {
-          fileData = await fs.readFile(annotation.file)
+          fileData = await fs.readFile(annotation.file);
         } else {
-          fileData = annotation.file
+          fileData = annotation.file;
         }
 
         // Compress file data
-        let compressedBuffer: Buffer
+        let compressedBuffer: Buffer;
         try {
-          const compressedData = pako.deflate(fileData)
-          compressedBuffer = Buffer.from(compressedData)
+          const compressedData = pako.deflate(fileData);
+          compressedBuffer = Buffer.from(compressedData);
         } catch (error) {
           throw new CompressionError(
             `Failed to compress file attachment annotation '${annotation.name}': ${error instanceof Error ? error.message : 'Unknown error'}`,
             error instanceof Error ? error : undefined
-          )
+          );
         }
 
         // Get file info
-        const fileName = this.escapePDFString(annotation.name)
-        const description = annotation.description ? this.escapePDFString(annotation.description) : fileName
-        const mimeType = annotation.mimeType || 'application/octet-stream'
-        const icon = annotation.icon || 'PushPin'
+        const fileName = this.escapePDFString(annotation.name);
+        const description = annotation.description
+          ? this.escapePDFString(annotation.description)
+          : fileName;
+        const mimeType = annotation.mimeType || 'application/octet-stream';
+        const icon = annotation.icon || 'PushPin';
 
         // Create EmbeddedFile stream
         const embeddedFileData = `<<
@@ -5087,12 +5604,12 @@ endstream`
 >>
 stream
 ${compressedBuffer.toString('binary')}
-endstream`
+endstream`;
 
-        objects.push({
+        ctx.objects.push({
           id: embeddedFileId,
-          data: embeddedFileData
-        })
+          data: embeddedFileData,
+        });
 
         // Create FileSpec dictionary
         const fileSpecData = `<<
@@ -5102,16 +5619,16 @@ endstream`
   /EF <<
     /F ${embeddedFileId} 0 R
   >>
->>`
+>>`;
 
-        objects.push({
+        ctx.objects.push({
           id: fileSpecId,
-          data: fileSpecData
-        })
+          data: fileSpecData,
+        });
 
         // Create FileAttachment annotation
-        const page = annotation.page !== undefined ? annotation.page : this.currentPageIndex
-        const pageObjId = firstPageObjectId + (page * 3) + 2
+        const page = annotation.page !== undefined ? annotation.page : this.currentPageIndex;
+        const pageObjId = ctx.firstPageObjectId + page * 3 + 2;
 
         const annotationData = `<<
   /Type /Annot
@@ -5121,43 +5638,49 @@ endstream`
   /FS ${fileSpecId} 0 R
   /Name /${icon}
   /P ${pageObjId} 0 R
->>`
+>>`;
 
-        objects.push({
+        ctx.objects.push({
           id: annotationId,
-          data: annotationData
-        })
+          data: annotationData,
+        });
 
         // Add annotation to page's Annots array
-        const pageData = this.pages[page]
+        const pageData = this.pages[page];
         if (!pageData.linkAnnots) {
-          pageData.linkAnnots = []
+          pageData.linkAnnots = [];
         }
-        pageData.linkAnnots.push(annotationId)
+        pageData.linkAnnots.push(annotationId);
       }
     }
+  }
 
-    // Create AcroForm and field objects
-    if (acroFormId && (this.formFields.length > 0 || this.signatureFields.length > 0)) {
-      const needAppearances = this.formOptions.needAppearances !== false
+  /**
+   * Build AcroForm and form field objects.
+   */
+  private buildFormFieldObjects(ctx: GenerationContext): void {
+    if (ctx.acroFormId && (this.formFields.length > 0 || this.signatureFields.length > 0)) {
+      const needAppearances = this.formOptions.needAppearances !== false;
 
       this.formFields.forEach((field, index) => {
-        const fieldId = fieldObjectIds[index]
-        const pageObjId = firstPageObjectId + (field.page * 3) + 2
+        const fieldId = ctx.fieldObjectIds[index];
+        const pageObjId = ctx.firstPageObjectId + field.page * 3 + 2;
 
         // Build field dictionary based on type
-        let fieldData = ''
+        let fieldData = '';
 
         if (field.type === 'text') {
           // Text field - needs font properties
-          const fontId = field.font ? this.getFontId(field.font) : this.getFontId(this.baseFont)
-          const fontSize = field.fontSize || 12
-          const [r, g, b] = field.fontColor ? this.parseColor(field.fontColor) : [0, 0, 0]
-          const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0]
-          const bgColor = field.backgroundColor ? this.parseColor(field.backgroundColor) : [1, 1, 1]
-          const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 1
+          const fontId = field.font ? this.getFontId(field.font) : this.getFontId(this.baseFont);
+          const fontSize = field.fontSize || 12;
+          const [r, g, b] = field.fontColor ? this.parseColor(field.fontColor) : [0, 0, 0];
+          const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0];
+          const bgColor = field.backgroundColor
+            ? this.parseColor(field.backgroundColor)
+            : [1, 1, 1];
+          const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 1;
           // Text field
-          const align = field.align === 'center' ? 1 : field.align === 'right' ? 2 : 0
+          const align = field.align === 'center' ? 1 : field.align === 'right' ? 2 : 0;
 
           fieldData = `<<
   /Type /Annot
@@ -5175,38 +5698,41 @@ endstream`
   >>
   /BS << /W ${borderWidth} /S /S >>
   /Q ${align}
-  /F 4`
+  /F 4`;
 
           if (field.maxLength) {
-            fieldData += `\n  /MaxLen ${field.maxLength}`
+            fieldData += `\n  /MaxLen ${field.maxLength}`;
           }
 
           // Flags
-          let flags = 0
-          if (field.multiline) flags |= 4096  // Multiline
-          if (field.password) flags |= 8192   // Password
-          if (field.readOnly) flags |= 1      // ReadOnly
-          if (field.required) flags |= 2      // Required
+          let flags = 0;
+          if (field.multiline) flags |= 4096; // Multiline
+          if (field.password) flags |= 8192; // Password
+          if (field.readOnly) flags |= 1; // ReadOnly
+          if (field.required) flags |= 2; // Required
           if (flags > 0) {
-            fieldData += `\n  /Ff ${flags}`
+            fieldData += `\n  /Ff ${flags}`;
           }
 
           if (field.tooltip) {
-            fieldData += `\n  /TU (${this.escapePDFString(field.tooltip)})`
+            fieldData += `\n  /TU (${this.escapePDFString(field.tooltip)})`;
           }
 
-          fieldData += `\n>>`
-
+          fieldData += `\n>>`;
         } else if (field.type === 'checkbox') {
           // Checkbox field - needs font properties for /DA
-          const fontId = field.font ? this.getFontId(field.font) : this.getFontId(this.baseFont)
-          const fontSize = field.fontSize || 12
-          const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0]
-          const bgColor = field.backgroundColor ? this.parseColor(field.backgroundColor) : [1, 1, 1]
-          const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 1
+          const fontId = field.font ? this.getFontId(field.font) : this.getFontId(this.baseFont);
+          const fontSize = field.fontSize || 12;
+          const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0];
+          const bgColor = field.backgroundColor
+            ? this.parseColor(field.backgroundColor)
+            : [1, 1, 1];
+          const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 1;
 
-          const checked = field.defaultValue ? '/Yes' : '/Off'
-          const checkColor = field.checkmarkColor ? this.parseColor(field.checkmarkColor) : [0, 0, 0]
+          const checked = field.defaultValue ? '/Yes' : '/Off';
+          const checkColor = field.checkmarkColor
+            ? this.parseColor(field.checkmarkColor)
+            : [0, 0, 0];
 
           fieldData = `<<
   /Type /Annot
@@ -5226,26 +5752,25 @@ endstream`
   >>
   /BS << /W ${borderWidth} /S /S >>
   /H /P
-  /F 4`
+  /F 4`;
 
           // Flags for checkboxes
-          let flags = 0
-          if (field.readOnly) flags |= 1
-          if (field.required) flags |= 2
+          let flags = 0;
+          if (field.readOnly) flags |= 1;
+          if (field.required) flags |= 2;
           if (flags > 0) {
-            fieldData += `\n  /Ff ${flags}`
+            fieldData += `\n  /Ff ${flags}`;
           }
 
           if (field.tooltip) {
-            fieldData += `\n  /TU (${this.escapePDFString(field.tooltip)})`
+            fieldData += `\n  /TU (${this.escapePDFString(field.tooltip)})`;
           }
 
-          fieldData += `\n>>`
-
+          fieldData += `\n>>`;
         } else if (field.type === 'radio') {
           // Radio button group
           // For simplicity, we'll create a parent field with child widgets
-          const selectedValue = field.defaultValue || ''
+          const selectedValue = field.defaultValue || '';
 
           // We would need multiple objects for radio buttons (one parent + children)
           // For now, simplified implementation
@@ -5257,19 +5782,22 @@ endstream`
   /T (${this.escapePDFString(field.name)})
   /V /${selectedValue || 'Off'}
   /P ${pageObjId} 0 R
->>`
-
+>>`;
         } else if (field.type === 'dropdown') {
           // Dropdown field (Choice field) - needs font properties for /DA
-          const fontId = field.font ? this.getFontId(field.font) : this.getFontId(this.baseFont)
-          const fontSize = field.fontSize || 12
-          const [r, g, b] = field.fontColor ? this.parseColor(field.fontColor) : [0, 0, 0]
-          const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0]
-          const bgColor = field.backgroundColor ? this.parseColor(field.backgroundColor) : [1, 1, 1]
-          const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 1
+          const fontId = field.font ? this.getFontId(field.font) : this.getFontId(this.baseFont);
+          const fontSize = field.fontSize || 12;
+          const [r, g, b] = field.fontColor ? this.parseColor(field.fontColor) : [0, 0, 0];
+          const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0];
+          const bgColor = field.backgroundColor
+            ? this.parseColor(field.backgroundColor)
+            : [1, 1, 1];
+          const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 1;
 
-          const optionsArray = field.options.map(opt => `(${this.escapePDFString(opt)})`).join(' ')
-          const defaultVal = field.defaultValue ? this.escapePDFString(field.defaultValue) : ''
+          const optionsArray = field.options
+            .map((opt) => `(${this.escapePDFString(opt)})`)
+            .join(' ');
+          const defaultVal = field.defaultValue ? this.escapePDFString(field.defaultValue) : '';
 
           fieldData = `<<
   /Type /Annot
@@ -5287,25 +5815,26 @@ endstream`
     /BC [${borderColor[0].toFixed(3)} ${borderColor[1].toFixed(3)} ${borderColor[2].toFixed(3)}]
   >>
   /BS << /W ${borderWidth} /S /S >>
-  /F 4`
+  /F 4`;
 
-          let flags = 131072  // Combo flag
-          if (field.editable) flags |= 262144  // Edit flag
-          if (field.readOnly) flags |= 1
-          if (field.required) flags |= 2
-          fieldData += `\n  /Ff ${flags}`
+          let flags = 131072; // Combo flag
+          if (field.editable) flags |= 262144; // Edit flag
+          if (field.readOnly) flags |= 1;
+          if (field.required) flags |= 2;
+          fieldData += `\n  /Ff ${flags}`;
 
           if (field.tooltip) {
-            fieldData += `\n  /TU (${this.escapePDFString(field.tooltip)})`
+            fieldData += `\n  /TU (${this.escapePDFString(field.tooltip)})`;
           }
 
-          fieldData += `\n>>`
-
+          fieldData += `\n>>`;
         } else if (field.type === 'button') {
           // Button field
-          const btnBgColor = field.backgroundColor ? this.parseColor(field.backgroundColor) : [0.8, 0.8, 0.8]
-          const btnBorderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0]
-          const btnBorderWidth = field.borderWidth !== undefined ? field.borderWidth : 1
+          const btnBgColor = field.backgroundColor
+            ? this.parseColor(field.backgroundColor)
+            : [0.8, 0.8, 0.8];
+          const btnBorderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0];
+          const btnBorderWidth = field.borderWidth !== undefined ? field.borderWidth : 1;
 
           fieldData = `<<
   /Type /Annot
@@ -5322,36 +5851,36 @@ endstream`
   /BS << /W ${btnBorderWidth} /S /S >>
   /H /P
   /F 4
-  /P ${pageObjId} 0 R`
+  /P ${pageObjId} 0 R`;
 
           if (field.action === 'submit' && field.submitUrl) {
             fieldData += `\n  /A <<
     /S /SubmitForm
     /F (${this.escapePDFString(field.submitUrl)})
-  >>`
+  >>`;
           } else if (field.action === 'reset') {
             fieldData += `\n  /A <<
     /S /ResetForm
-  >>`
+  >>`;
           }
 
-          fieldData += `\n>>`
+          fieldData += `\n>>`;
         }
 
-        objects.push({
+        ctx.objects.push({
           id: fieldId,
-          data: fieldData
-        })
-      })
+          data: fieldData,
+        });
+      });
 
       // Create signature field objects
       this.signatureFields.forEach((field, index) => {
-        const fieldId = signatureObjectIds[index]
-        const pageObjId = firstPageObjectId + (field.page * 3) + 2
+        const fieldId = ctx.signatureObjectIds[index];
+        const pageObjId = ctx.firstPageObjectId + field.page * 3 + 2;
 
-        const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0.8]
-        const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 2
-        const showLabels = field.showLabels !== false
+        const borderColor = field.borderColor ? this.parseColor(field.borderColor) : [0, 0, 0.8];
+        const borderWidth = field.borderWidth !== undefined ? field.borderWidth : 2;
+        const showLabels = field.showLabels !== false;
 
         // Build signature field dictionary with visible border
         let sigFieldData = `<<
@@ -5368,37 +5897,39 @@ endstream`
     /BC [${borderColor[0].toFixed(3)} ${borderColor[1].toFixed(3)} ${borderColor[2].toFixed(3)}]
     /CA (Click to Sign)
   >>
-  /DA (/Helvetica 10 Tf 0 0 0 rg)`
+  /DA (/Helvetica 10 Tf 0 0 0 rg)`;
 
         if (field.reason) {
-          sigFieldData += `\n  /Reason (${this.escapePDFString(field.reason)})`
+          sigFieldData += `\n  /Reason (${this.escapePDFString(field.reason)})`;
         }
 
         if (field.location) {
-          sigFieldData += `\n  /Location (${this.escapePDFString(field.location)})`
+          sigFieldData += `\n  /Location (${this.escapePDFString(field.location)})`;
         }
 
         if (field.contactInfo) {
-          sigFieldData += `\n  /ContactInfo (${this.escapePDFString(field.contactInfo)})`
+          sigFieldData += `\n  /ContactInfo (${this.escapePDFString(field.contactInfo)})`;
         }
 
-        sigFieldData += `\n>>`
+        sigFieldData += `\n>>`;
 
-        objects.push({
+        ctx.objects.push({
           id: fieldId,
-          data: sigFieldData
-        })
-      })
+          data: sigFieldData,
+        });
+      });
 
       // Create AcroForm dictionary with default resources
-      const allFieldRefs = [...fieldObjectIds, ...signatureObjectIds].map(id => `${id} 0 R`).join(' ')
+      const allFieldRefs = [...ctx.fieldObjectIds, ...ctx.signatureObjectIds]
+        .map((id) => `${id} 0 R`)
+        .join(' ');
 
       // Build DR (Default Resources) with fonts
-      let drFonts = ''
+      let drFonts = '';
       this.fonts.forEach((fontIndex, fontName) => {
-        const fontObjId = fontObjectIds.get(fontName)!
-        drFonts += `\n    /F${fontIndex} ${fontObjId} 0 R`
-      })
+        const fontObjId = ctx.fontObjectIds.get(fontName)!;
+        drFonts += `\n    /F${fontIndex} ${fontObjId} 0 R`;
+      });
 
       const acroFormData = `<<
   /Fields [${allFieldRefs}]
@@ -5407,20 +5938,25 @@ endstream`
     /Font <<${drFonts}
     >>
   >>
->>`
+>>`;
 
-      objects.push({
-        id: acroFormId,
-        data: acroFormData
-      })
+      ctx.objects.push({
+        id: ctx.acroFormId,
+        data: acroFormData,
+      });
     }
+  }
 
+  /**
+   * Build XMP metadata and OutputIntent objects.
+   */
+  private buildMetadataObjects(ctx: GenerationContext): void {
     // Add XMP Metadata stream (for PDF/A or when explicitly enabled)
-    if (metadataObjectId && (this.pdfAOptions || this.enableXMPMetadata)) {
+    if (ctx.metadataObjectId && (this.pdfAOptions || this.enableXMPMetadata)) {
       // Create XMP Metadata stream
-      const conformanceLevel = this.pdfAOptions?.conformanceLevel
-      const xmpMetadata = generateXMPMetadata(this.info, conformanceLevel)
-      const xmpBuffer = Buffer.from(xmpMetadata, 'utf-8')
+      const conformanceLevel = this.pdfAOptions?.conformanceLevel;
+      const xmpMetadata = generateXMPMetadata(this.info, conformanceLevel);
+      const xmpBuffer = Buffer.from(xmpMetadata, 'utf-8');
 
       const metadataData = `<<
   /Type /Metadata
@@ -5429,51 +5965,55 @@ endstream`
 >>
 stream
 ${xmpBuffer.toString('binary')}
-endstream`
+endstream`;
 
-      objects.push({
-        id: metadataObjectId,
-        data: metadataData
-      })
+      ctx.objects.push({
+        id: ctx.metadataObjectId,
+        data: metadataData,
+      });
     }
 
     // Add PDF/A OutputIntent (only for PDF/A)
-    if (this.pdfAOptions && outputIntentId) {
-
+    if (this.pdfAOptions && ctx.outputIntentId) {
       // Create OutputIntent for color space
-      const colorProfile = this.pdfAOptions.colorProfile || 'sRGB'
-      const identifier = this.pdfAOptions.outputIntent?.identifier || 'sRGB IEC61966-2.1'
-      const condition = this.pdfAOptions.outputIntent?.condition || 'sRGB'
-      const info = this.pdfAOptions.outputIntent?.info || ''
+      const colorProfile = this.pdfAOptions.colorProfile || 'sRGB';
+      const identifier = this.pdfAOptions.outputIntent?.identifier || 'sRGB IEC61966-2.1';
+      const condition = this.pdfAOptions.outputIntent?.condition || 'sRGB';
+      const info = this.pdfAOptions.outputIntent?.info || '';
 
       let outputIntentData = `<<
   /Type /OutputIntent
   /S /GTS_PDFA1
   /OutputConditionIdentifier (${this.escapePDFString(identifier)})
-  /OutputCondition (${this.escapePDFString(condition)})`
+  /OutputCondition (${this.escapePDFString(condition)})`;
 
       if (info) {
-        outputIntentData += `\n  /Info (${this.escapePDFString(info)})`
+        outputIntentData += `\n  /Info (${this.escapePDFString(info)})`;
       }
 
       outputIntentData += `\n  /RegistryName (http://www.color.org)
->>`
+>>`;
 
-      objects.push({
-        id: outputIntentId,
-        data: outputIntentData
-      })
+      ctx.objects.push({
+        id: ctx.outputIntentId,
+        data: outputIntentData,
+      });
     }
+  }
 
-    // Add Encrypt object if encryption is enabled
-    let encryptObjectId: number | null = null
+  /**
+   * Build the encryption dictionary object.
+   * Returns the encryption object ID, or null if encryption is not enabled.
+   */
+  private buildEncryptionObject(ctx: GenerationContext): number | null {
+    let encryptObjectId: number | null = null;
     if (this.encryption && this.encryption.isEnabled()) {
-      encryptObjectId = currentObjectId++
-      const encDict = this.encryption.getEncryptionDictionary()
+      encryptObjectId = ctx.currentObjectId++;
+      const encDict = this.encryption.getEncryptionDictionary();
 
       // Convert O and U to hex strings
-      const OHex = '<' + encDict.O.toString('hex').toUpperCase() + '>'
-      const UHex = '<' + encDict.U.toString('hex').toUpperCase() + '>'
+      const OHex = '<' + encDict.O.toString('hex').toUpperCase() + '>';
+      const UHex = '<' + encDict.U.toString('hex').toUpperCase() + '>';
 
       const encryptData = `<<
   /Filter /Standard
@@ -5483,19 +6023,57 @@ endstream`
   /U ${UHex}
   /P ${encDict.P}
   /Length 128
->>`
+>>`;
 
-      objects.push({
+      ctx.objects.push({
         id: encryptObjectId,
-        data: encryptData
-      })
+        data: encryptData,
+      });
+    }
+    return encryptObjectId;
+  }
+
+  /**
+   * Generate the final PDF as a Buffer
+   */
+  async generate(): Promise<Buffer> {
+    // Render watermarks, page numbers, headers, and footers before generating PDF
+    await this.renderWatermarks();
+    this.renderPageNumbers();
+    this.renderHeaders();
+    this.renderFooters();
+
+    // Fallback: if no fonts registered, register default Helvetica
+    if (this.fonts.size === 0) {
+      this.getFontId('Helvetica');
     }
 
-    // Sort objects by ID to ensure proper order
-    objects.sort((a, b) => a.id - b.id)
+    const ctx = this.reserveObjectIds();
 
-    // Build PDF
-    return this.buildPDF(objects, catalogId, infoObjectId, encryptObjectId)
+    this.buildInfoObject(ctx);
+    this.buildCatalogObject(ctx);
+    this.buildLinkAnnotationObjects(ctx);
+    this.buildPageObjects(ctx);
+    this.buildStandardFontObjects(ctx);
+    this.buildCustomFontObjects(ctx);
+    this.buildExtGStateObjects(ctx);
+    this.buildPagesObject(ctx);
+    this.buildImageXObjects(ctx);
+    this.buildGradientObjects(ctx);
+    this.buildTilingPatternObjects(ctx);
+    this.buildFormXObjectObjects(ctx);
+    this.buildLayerObjects(ctx);
+    this.buildLegacyAnnotationObjects(ctx);
+    this.buildAdvancedAnnotationObjects(ctx);
+    this.buildBookmarkObjects(ctx);
+    await this.buildDocumentAttachmentObjects(ctx);
+    await this.buildAttachmentAnnotationObjects(ctx);
+    this.buildFormFieldObjects(ctx);
+    this.buildMetadataObjects(ctx);
+    const encryptObjectId = this.buildEncryptionObject(ctx);
+
+    ctx.objects.sort((a, b) => a.id - b.id);
+    return this.buildPDF(ctx.objects, ctx.catalogId, ctx.infoObjectId, encryptObjectId);
   }
 
   /**
@@ -5503,170 +6081,189 @@ endstream`
    * Strings are enclosed in parentheses: (string)
    */
   private encryptStringsInObject(objData: string, objectId: number): string {
-    if (!this.encryption) return objData
+    if (!this.encryption) return objData;
 
-    let result = ''
-    let i = 0
+    let result = '';
+    let i = 0;
 
     while (i < objData.length) {
       // Look for literal string start
       if (objData[i] === '(') {
         // Find the matching closing parenthesis (handle escaped parentheses)
-        let depth = 1
-        let j = i + 1
-        let stringContent = ''
+        let depth = 1;
+        let j = i + 1;
+        let stringContent = '';
 
         while (j < objData.length && depth > 0) {
           if (objData[j] === '\\' && j + 1 < objData.length) {
             // Escaped character
-            stringContent += objData[j] + objData[j + 1]
-            j += 2
+            stringContent += objData[j] + objData[j + 1];
+            j += 2;
           } else if (objData[j] === '(') {
-            stringContent += objData[j]
-            depth++
-            j++
+            stringContent += objData[j];
+            depth++;
+            j++;
           } else if (objData[j] === ')') {
-            depth--
+            depth--;
             if (depth > 0) {
-              stringContent += objData[j]
+              stringContent += objData[j];
             }
-            j++
+            j++;
           } else {
-            stringContent += objData[j]
-            j++
+            stringContent += objData[j];
+            j++;
           }
         }
 
         // Encrypt the string content
-        const stringBuffer = Buffer.from(stringContent, 'latin1')
-        const encryptedBuffer = this.encryption.encryptData(stringBuffer, objectId, 0)
+        const stringBuffer = Buffer.from(stringContent, 'latin1');
+        const encryptedBuffer = this.encryption.encryptData(stringBuffer, objectId, 0);
 
         // Convert to hex string
-        const hexString = '<' + encryptedBuffer.toString('hex') + '>'
-        result += hexString
+        const hexString = '<' + encryptedBuffer.toString('hex') + '>';
+        result += hexString;
 
-        i = j
+        i = j;
       } else {
-        result += objData[i]
-        i++
+        result += objData[i];
+        i++;
       }
     }
 
-    return result
+    return result;
   }
 
   /**
    * Build the final PDF file
    */
-  private buildPDF(objects: PDFObject[], catalogId: number, infoObjectId: number, encryptObjectId: number | null): Buffer {
-    const buffers: Buffer[] = []
+  private buildPDF(
+    objects: PDFObject[],
+    catalogId: number,
+    infoObjectId: number,
+    encryptObjectId: number | null
+  ): Buffer {
+    const buffers: Buffer[] = [];
 
     // PDF Header with customizable version
-    buffers.push(Buffer.from(`%PDF-${this.pdfVersion}\n`, 'latin1'))
-    buffers.push(Buffer.from('%âãÏÓ\n', 'latin1')) // Binary marker
+    buffers.push(Buffer.from(`%PDF-${this.pdfVersion}\n`, 'latin1'));
+    buffers.push(Buffer.from('%âãÏÓ\n', 'latin1')); // Binary marker
 
     // Track byte offsets for xref table
-    const offsets: number[] = [0] // object 0 is always 0
+    const offsets: number[] = [0]; // object 0 is always 0
 
-    let currentOffset = buffers.reduce((sum, buf) => sum + buf.length, 0)
+    let currentOffset = buffers.reduce((sum, buf) => sum + buf.length, 0);
 
     // Write objects
     for (const obj of objects) {
-      offsets[obj.id] = currentOffset
+      offsets[obj.id] = currentOffset;
 
-      const objHeader = Buffer.from(`${obj.id} 0 obj\n`, 'latin1')
-      const objFooter = Buffer.from('\nendobj\n', 'latin1')
+      const objHeader = Buffer.from(`${obj.id} 0 obj\n`, 'latin1');
+      const objFooter = Buffer.from('\nendobj\n', 'latin1');
 
       // Check if obj.data contains binary stream (contains "stream\n")
       if (obj.data.includes('stream\n')) {
         // Split at stream boundary
-        const streamIndex = obj.data.indexOf('stream\n')
-        let beforeStream = obj.data.substring(0, streamIndex + 7) // Include "stream\n"
-        const afterStreamIndex = obj.data.indexOf('\nendstream')
-        let streamData = obj.data.substring(streamIndex + 7, afterStreamIndex)
-        const afterStream = obj.data.substring(afterStreamIndex)
+        const streamIndex = obj.data.indexOf('stream\n');
+        let beforeStream = obj.data.substring(0, streamIndex + 7); // Include "stream\n"
+        const afterStreamIndex = obj.data.indexOf('\nendstream');
+
+        if (afterStreamIndex === -1) {
+          // Malformed stream object — write as-is without splitting
+          const objData = Buffer.from(obj.data, 'binary');
+          buffers.push(objHeader, objData, objFooter);
+          currentOffset += objHeader.length + objData.length + objFooter.length;
+          continue;
+        }
+
+        let streamData = obj.data.substring(streamIndex + 7, afterStreamIndex);
+        const afterStream = obj.data.substring(afterStreamIndex);
 
         // Encrypt stream if encryption is enabled and this is not the encrypt object itself
         if (this.encryption && this.encryption.isEnabled() && obj.id !== encryptObjectId) {
-          const streamBuffer = Buffer.from(streamData, 'binary')
-          const encryptedBuffer = this.encryption.encryptData(streamBuffer, obj.id, 0)
-          streamData = encryptedBuffer.toString('binary')
+          const streamBuffer = Buffer.from(streamData, 'binary');
+          const encryptedBuffer = this.encryption.encryptData(streamBuffer, obj.id, 0);
+          streamData = encryptedBuffer.toString('binary');
 
           // Update the Length in the dictionary
-          const lengthMatch = beforeStream.match(/\/Length\s+(\d+)/)
+          const lengthMatch = beforeStream.match(/\/Length\s+(\d+)/);
           if (lengthMatch) {
-            const newLength = encryptedBuffer.length
-            beforeStream = beforeStream.replace(/\/Length\s+\d+/, `/Length ${newLength}`)
+            const newLength = encryptedBuffer.length;
+            beforeStream = beforeStream.replace(/\/Length\s+\d+/, `/Length ${newLength}`);
           }
         }
 
-        buffers.push(objHeader)
-        buffers.push(Buffer.from(beforeStream, 'latin1'))
-        buffers.push(Buffer.from(streamData, 'binary'))  // Binary stream data (possibly encrypted)
-        buffers.push(Buffer.from(afterStream, 'latin1'))
-        buffers.push(objFooter)
+        buffers.push(objHeader);
+        buffers.push(Buffer.from(beforeStream, 'latin1'));
+        buffers.push(Buffer.from(streamData, 'binary')); // Binary stream data (possibly encrypted)
+        buffers.push(Buffer.from(afterStream, 'latin1'));
+        buffers.push(objFooter);
 
-        currentOffset += objHeader.length + beforeStream.length + streamData.length + afterStream.length + objFooter.length
+        currentOffset +=
+          objHeader.length +
+          beforeStream.length +
+          streamData.length +
+          afterStream.length +
+          objFooter.length;
       } else {
         // Regular text object - encrypt strings if encryption is enabled
-        let objDataStr = obj.data
+        let objDataStr = obj.data;
 
         if (this.encryption && this.encryption.isEnabled() && obj.id !== encryptObjectId) {
           // Encrypt literal strings (text between parentheses)
-          objDataStr = this.encryptStringsInObject(objDataStr, obj.id)
+          objDataStr = this.encryptStringsInObject(objDataStr, obj.id);
         }
 
-        const objData = Buffer.from(objDataStr, 'latin1')
-        buffers.push(objHeader)
-        buffers.push(objData)
-        buffers.push(objFooter)
+        const objData = Buffer.from(objDataStr, 'latin1');
+        buffers.push(objHeader);
+        buffers.push(objData);
+        buffers.push(objFooter);
 
-        currentOffset += objHeader.length + objData.length + objFooter.length
+        currentOffset += objHeader.length + objData.length + objFooter.length;
       }
     }
 
     // xref table
-    const xrefOffset = currentOffset
-    buffers.push(Buffer.from('xref\n', 'latin1'))
-    buffers.push(Buffer.from(`0 ${objects.length + 1}\n`, 'latin1'))
-    buffers.push(Buffer.from('0000000000 65535 f \n', 'latin1'))
+    const xrefOffset = currentOffset;
+    buffers.push(Buffer.from('xref\n', 'latin1'));
+    buffers.push(Buffer.from(`0 ${objects.length + 1}\n`, 'latin1'));
+    buffers.push(Buffer.from('0000000000 65535 f \n', 'latin1'));
 
     for (let i = 1; i <= objects.length; i++) {
-      const offset = offsets[i] || 0
-      buffers.push(Buffer.from(`${offset.toString().padStart(10, '0')} 00000 n \n`, 'latin1'))
+      const offset = offsets[i] || 0;
+      buffers.push(Buffer.from(`${offset.toString().padStart(10, '0')} 00000 n \n`, 'latin1'));
     }
 
     // Trailer
-    buffers.push(Buffer.from('trailer\n', 'latin1'))
+    buffers.push(Buffer.from('trailer\n', 'latin1'));
 
     // Build trailer dictionary
-    let trailerDict = `<<\n  /Size ${objects.length + 1}\n  /Root ${catalogId} 0 R\n  /Info ${infoObjectId} 0 R`
+    let trailerDict = `<<\n  /Size ${objects.length + 1}\n  /Root ${catalogId} 0 R\n  /Info ${infoObjectId} 0 R`;
 
     // Add Encrypt reference if encryption is enabled
     if (encryptObjectId !== null) {
-      trailerDict += `\n  /Encrypt ${encryptObjectId} 0 R`
+      trailerDict += `\n  /Encrypt ${encryptObjectId} 0 R`;
 
       // Add ID array (required for encrypted documents)
-      const idHex = '<' + this.documentId.toUpperCase() + '>'
-      trailerDict += `\n  /ID [${idHex} ${idHex}]`
+      const idHex = '<' + this.documentId.toUpperCase() + '>';
+      trailerDict += `\n  /ID [${idHex} ${idHex}]`;
     }
 
-    trailerDict += `\n>>`
-    buffers.push(Buffer.from(trailerDict + '\n', 'latin1'))
+    trailerDict += `\n>>`;
+    buffers.push(Buffer.from(trailerDict + '\n', 'latin1'));
 
-    buffers.push(Buffer.from('startxref\n', 'latin1'))
-    buffers.push(Buffer.from(xrefOffset.toString() + '\n', 'latin1'))
-    buffers.push(Buffer.from('%%EOF', 'latin1'))
+    buffers.push(Buffer.from('startxref\n', 'latin1'));
+    buffers.push(Buffer.from(xrefOffset.toString() + '\n', 'latin1'));
+    buffers.push(Buffer.from('%%EOF', 'latin1'));
 
-    return Buffer.concat(buffers)
+    return Buffer.concat(buffers);
   }
 
   /**
    * Save PDF to file (Node.js) or trigger download (Browser)
    */
   async save(filepath: string): Promise<void> {
-    const buffer = await this.generate()
-    const fs = PlatformFactory.getFileSystem()
-    await fs.writeFile(filepath, buffer)
+    const buffer = await this.generate();
+    const fs = PlatformFactory.getFileSystem();
+    await fs.writeFile(filepath, buffer);
   }
 }

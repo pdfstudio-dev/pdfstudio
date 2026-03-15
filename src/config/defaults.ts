@@ -30,21 +30,21 @@ export interface PDFStudioConfig {
    * Used when DocumentInfo.Creator is not specified
    * @default 'PDFStudio'
    */
-  defaultCreator?: string
+  defaultCreator?: string;
 
   /**
    * Default Producer metadata field
    * Used when DocumentInfo.Producer is not specified
    * @default 'PDFStudio PDF Library'
    */
-  defaultProducer?: string
+  defaultProducer?: string;
 
   /**
    * Default author for annotations
    * Used when annotation author is not specified
    * @default 'PDFStudio'
    */
-  defaultAnnotationAuthor?: string
+  defaultAnnotationAuthor?: string;
 }
 
 /**
@@ -54,8 +54,8 @@ export interface PDFStudioConfig {
 let globalConfig: Required<PDFStudioConfig> = {
   defaultCreator: 'PDFStudio',
   defaultProducer: 'PDFStudio PDF Library',
-  defaultAnnotationAuthor: 'PDFStudio'
-}
+  defaultAnnotationAuthor: 'PDFStudio',
+};
 
 /**
  * Configure global defaults for PDFStudio
@@ -87,8 +87,8 @@ let globalConfig: Required<PDFStudioConfig> = {
 export function configure(config: Partial<PDFStudioConfig>): void {
   globalConfig = {
     ...globalConfig,
-    ...config
-  }
+    ...config,
+  };
 }
 
 /**
@@ -97,7 +97,7 @@ export function configure(config: Partial<PDFStudioConfig>): void {
  * @internal
  */
 export function getConfig(): Required<PDFStudioConfig> {
-  return { ...globalConfig }
+  return { ...globalConfig };
 }
 
 /**
@@ -115,6 +115,6 @@ export function resetConfig(): void {
   globalConfig = {
     defaultCreator: 'PDFStudio',
     defaultProducer: 'PDFStudio PDF Library',
-    defaultAnnotationAuthor: 'PDFStudio'
-  }
+    defaultAnnotationAuthor: 'PDFStudio',
+  };
 }

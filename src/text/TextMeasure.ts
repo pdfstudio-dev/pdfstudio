@@ -1,4 +1,4 @@
-import { PDFBaseFont } from '../types'
+import { PDFBaseFont } from '../types';
 
 /**
  * TextMeasure - Calculates text width for PDF fonts
@@ -14,7 +14,7 @@ export class TextMeasure {
     '!': 278,
     '"': 355,
     '#': 556,
-    '$': 556,
+    $: 556,
     '%': 889,
     '&': 667,
     "'": 191,
@@ -43,69 +43,69 @@ export class TextMeasure {
     '>': 584,
     '?': 556,
     '@': 1015,
-    'A': 667,
-    'B': 667,
-    'C': 722,
-    'D': 722,
-    'E': 667,
-    'F': 611,
-    'G': 778,
-    'H': 722,
-    'I': 278,
-    'J': 500,
-    'K': 667,
-    'L': 556,
-    'M': 833,
-    'N': 722,
-    'O': 778,
-    'P': 667,
-    'Q': 778,
-    'R': 722,
-    'S': 667,
-    'T': 611,
-    'U': 722,
-    'V': 667,
-    'W': 944,
-    'X': 667,
-    'Y': 667,
-    'Z': 611,
+    A: 667,
+    B: 667,
+    C: 722,
+    D: 722,
+    E: 667,
+    F: 611,
+    G: 778,
+    H: 722,
+    I: 278,
+    J: 500,
+    K: 667,
+    L: 556,
+    M: 833,
+    N: 722,
+    O: 778,
+    P: 667,
+    Q: 778,
+    R: 722,
+    S: 667,
+    T: 611,
+    U: 722,
+    V: 667,
+    W: 944,
+    X: 667,
+    Y: 667,
+    Z: 611,
     '[': 278,
     '\\': 278,
     ']': 278,
     '^': 469,
-    '_': 556,
+    _: 556,
     '`': 333,
-    'a': 556,
-    'b': 556,
-    'c': 500,
-    'd': 556,
-    'e': 556,
-    'f': 278,
-    'g': 556,
-    'h': 556,
-    'i': 222,
-    'j': 222,
-    'k': 500,
-    'l': 222,
-    'm': 833,
-    'n': 556,
-    'o': 556,
-    'p': 556,
-    'q': 556,
-    'r': 333,
-    's': 500,
-    't': 278,
-    'u': 556,
-    'v': 500,
-    'w': 722,
-    'x': 500,
-    'y': 500,
-    'z': 500,
+    a: 556,
+    b: 556,
+    c: 500,
+    d: 556,
+    e: 556,
+    f: 278,
+    g: 556,
+    h: 556,
+    i: 222,
+    j: 222,
+    k: 500,
+    l: 222,
+    m: 833,
+    n: 556,
+    o: 556,
+    p: 556,
+    q: 556,
+    r: 333,
+    s: 500,
+    t: 278,
+    u: 556,
+    v: 500,
+    w: 722,
+    x: 500,
+    y: 500,
+    z: 500,
     '{': 334,
     '|': 260,
     '}': 334,
-    '~': 584
-  }
+    '~': 584,
+  };
 
   /**
    * Measure the width of a text string
@@ -115,24 +115,24 @@ export class TextMeasure {
    * @returns Width in points
    */
   static measureText(text: string, fontSize: number, font: PDFBaseFont = 'Helvetica'): number {
-    let width = 0
+    let width = 0;
 
     for (let i = 0; i < text.length; i++) {
-      const char = text[i]
-      const charWidth = this.HELVETICA_WIDTHS[char] || 556 // Default width for unknown chars
+      const char = text[i];
+      const charWidth = this.HELVETICA_WIDTHS[char] || 556; // Default width for unknown chars
 
-      width += charWidth
+      width += charWidth;
     }
 
     // Convert from 1000-unit font metrics to actual points
-    return (width * fontSize) / 1000
+    return (width * fontSize) / 1000;
   }
 
   /**
    * Split text into words
    */
   static splitIntoWords(text: string): string[] {
-    return text.split(/(\s+)/)
+    return text.split(/(\s+)/);
   }
 
   /**
@@ -143,30 +143,35 @@ export class TextMeasure {
    * @param font Font name
    * @returns Array of lines
    */
-  static wrapText(text: string, maxWidth: number, fontSize: number, font: PDFBaseFont = 'Helvetica'): string[] {
-    const words = this.splitIntoWords(text)
-    const lines: string[] = []
-    let currentLine = ''
+  static wrapText(
+    text: string,
+    maxWidth: number,
+    fontSize: number,
+    font: PDFBaseFont = 'Helvetica'
+  ): string[] {
+    const words = this.splitIntoWords(text);
+    const lines: string[] = [];
+    let currentLine = '';
 
     for (const word of words) {
-      const testLine = currentLine + word
-      const testWidth = this.measureText(testLine, fontSize, font)
+      const testLine = currentLine + word;
+      const testWidth = this.measureText(testLine, fontSize, font);
 
       if (testWidth > maxWidth && currentLine.length > 0) {
         // Line is too long, push current line and start new one
-        lines.push(currentLine.trimEnd())
-        currentLine = word.trimStart()
+        lines.push(currentLine.trimEnd());
+        currentLine = word.trimStart();
       } else {
-        currentLine = testLine
+        currentLine = testLine;
       }
     }
 
     // Add last line
     if (currentLine.length > 0) {
-      lines.push(currentLine.trimEnd())
+      lines.push(currentLine.trimEnd());
     }
 
-    return lines
+    return lines;
   }
 
   /**
@@ -174,7 +179,7 @@ export class TextMeasure {
    */
   static calculateLineHeight(fontSize: number, lineGap: number = 0): number {
     // Standard line height is 120% of font size
-    return fontSize * 1.2 + lineGap
+    return fontSize * 1.2 + lineGap;
   }
 
   /**
@@ -194,39 +199,39 @@ export class TextMeasure {
     ellipsisChar: string = '...'
   ): string {
     // Check if text fits without truncation
-    const fullWidth = this.measureText(text, fontSize, font)
+    const fullWidth = this.measureText(text, fontSize, font);
     if (fullWidth <= maxWidth) {
-      return text
+      return text;
     }
 
     // Measure ellipsis width
-    const ellipsisWidth = this.measureText(ellipsisChar, fontSize, font)
-    const availableWidth = maxWidth - ellipsisWidth
+    const ellipsisWidth = this.measureText(ellipsisChar, fontSize, font);
+    const availableWidth = maxWidth - ellipsisWidth;
 
     // If even the ellipsis doesn't fit, return just the ellipsis
     if (availableWidth <= 0) {
-      return ellipsisChar
+      return ellipsisChar;
     }
 
     // Binary search to find the maximum number of characters that fit
-    let left = 0
-    let right = text.length
-    let bestFit = 0
+    let left = 0;
+    let right = text.length;
+    let bestFit = 0;
 
     while (left <= right) {
-      const mid = Math.floor((left + right) / 2)
-      const testText = text.substring(0, mid)
-      const testWidth = this.measureText(testText, fontSize, font)
+      const mid = Math.floor((left + right) / 2);
+      const testText = text.substring(0, mid);
+      const testWidth = this.measureText(testText, fontSize, font);
 
       if (testWidth <= availableWidth) {
-        bestFit = mid
-        left = mid + 1
+        bestFit = mid;
+        left = mid + 1;
       } else {
-        right = mid - 1
+        right = mid - 1;
       }
     }
 
     // Return truncated text with ellipsis
-    return text.substring(0, bestFit) + ellipsisChar
+    return text.substring(0, bestFit) + ellipsisChar;
   }
 }
