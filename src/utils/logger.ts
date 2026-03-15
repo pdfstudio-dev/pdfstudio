@@ -8,22 +8,22 @@ export enum LogLevel {
   INFO = 1,
   WARN = 2,
   ERROR = 3,
-  NONE = 4
+  NONE = 4,
 }
 
 export interface LogMessage {
-  level: LogLevel
-  message: string
-  timestamp: Date
-  context?: string
-  data?: any
+  level: LogLevel;
+  message: string;
+  timestamp: Date;
+  context?: string;
+  data?: unknown;
 }
 
 export interface Logger {
-  debug(message: string, context?: string, data?: any): void
-  info(message: string, context?: string, data?: any): void
-  warn(message: string, context?: string, data?: any): void
-  error(message: string, context?: string, data?: any): void
+  debug(message: string, context?: string, data?: unknown): void;
+  info(message: string, context?: string, data?: unknown): void;
+  warn(message: string, context?: string, data?: unknown): void;
+  error(message: string, context?: string, data?: unknown): void;
 }
 
 /**
@@ -32,47 +32,47 @@ export interface Logger {
 class ConsoleLogger implements Logger {
   constructor(private minLevel: LogLevel = LogLevel.WARN) {}
 
-  debug(message: string, context?: string, data?: any): void {
+  debug(message: string, context?: string, data?: unknown): void {
     if (this.minLevel <= LogLevel.DEBUG) {
-      this.log(LogLevel.DEBUG, message, context, data)
+      this.log(LogLevel.DEBUG, message, context, data);
     }
   }
 
-  info(message: string, context?: string, data?: any): void {
+  info(message: string, context?: string, data?: unknown): void {
     if (this.minLevel <= LogLevel.INFO) {
-      this.log(LogLevel.INFO, message, context, data)
+      this.log(LogLevel.INFO, message, context, data);
     }
   }
 
-  warn(message: string, context?: string, data?: any): void {
+  warn(message: string, context?: string, data?: unknown): void {
     if (this.minLevel <= LogLevel.WARN) {
-      this.log(LogLevel.WARN, message, context, data)
+      this.log(LogLevel.WARN, message, context, data);
     }
   }
 
-  error(message: string, context?: string, data?: any): void {
+  error(message: string, context?: string, data?: unknown): void {
     if (this.minLevel <= LogLevel.ERROR) {
-      this.log(LogLevel.ERROR, message, context, data)
+      this.log(LogLevel.ERROR, message, context, data);
     }
   }
 
-  private log(level: LogLevel, message: string, context?: string, data?: any): void {
-    const prefix = context ? `[${context}]` : ''
-    const timestamp = new Date().toISOString()
+  private log(level: LogLevel, message: string, context?: string, data?: unknown): void {
+    const prefix = context ? `[${context}]` : '';
+    const timestamp = new Date().toISOString();
 
     switch (level) {
       case LogLevel.DEBUG:
-        console.debug(`${timestamp} DEBUG ${prefix} ${message}`, data || '')
-        break
+        console.debug(`${timestamp} DEBUG ${prefix} ${message}`, data || '');
+        break;
       case LogLevel.INFO:
-        console.info(`${timestamp} INFO ${prefix} ${message}`, data || '')
-        break
+        console.info(`${timestamp} INFO ${prefix} ${message}`, data || '');
+        break;
       case LogLevel.WARN:
-        console.warn(`${timestamp} WARN ${prefix} ${message}`, data || '')
-        break
+        console.warn(`${timestamp} WARN ${prefix} ${message}`, data || '');
+        break;
       case LogLevel.ERROR:
-        console.error(`${timestamp} ERROR ${prefix} ${message}`, data || '')
-        break
+        console.error(`${timestamp} ERROR ${prefix} ${message}`, data || '');
+        break;
     }
   }
 }
@@ -93,97 +93,97 @@ class SilentLogger implements Logger {
 class CustomLogger implements Logger {
   constructor(private callback: (log: LogMessage) => void) {}
 
-  debug(message: string, context?: string, data?: any): void {
+  debug(message: string, context?: string, data?: unknown): void {
     this.callback({
       level: LogLevel.DEBUG,
       message,
       timestamp: new Date(),
       context,
-      data
-    })
+      data,
+    });
   }
 
-  info(message: string, context?: string, data?: any): void {
+  info(message: string, context?: string, data?: unknown): void {
     this.callback({
       level: LogLevel.INFO,
       message,
       timestamp: new Date(),
       context,
-      data
-    })
+      data,
+    });
   }
 
-  warn(message: string, context?: string, data?: any): void {
+  warn(message: string, context?: string, data?: unknown): void {
     this.callback({
       level: LogLevel.WARN,
       message,
       timestamp: new Date(),
       context,
-      data
-    })
+      data,
+    });
   }
 
-  error(message: string, context?: string, data?: any): void {
+  error(message: string, context?: string, data?: unknown): void {
     this.callback({
       level: LogLevel.ERROR,
       message,
       timestamp: new Date(),
       context,
-      data
-    })
+      data,
+    });
   }
 }
 
 /**
  * Global logger instance
  */
-let globalLogger: Logger = new ConsoleLogger(LogLevel.WARN)
+let globalLogger: Logger = new ConsoleLogger(LogLevel.WARN);
 
 /**
  * Get the current logger instance
  */
 export function getLogger(): Logger {
-  return globalLogger
+  return globalLogger;
 }
 
 /**
  * Set a custom logger
  */
 export function setLogger(logger: Logger): void {
-  globalLogger = logger
+  globalLogger = logger;
 }
 
 /**
  * Configure console logger with specific log level
  */
 export function setLogLevel(level: LogLevel): void {
-  globalLogger = new ConsoleLogger(level)
+  globalLogger = new ConsoleLogger(level);
 }
 
 /**
  * Set silent logger (no output)
  */
 export function setSilentLogger(): void {
-  globalLogger = new SilentLogger()
+  globalLogger = new SilentLogger();
 }
 
 /**
  * Set custom logger with callback
  */
 export function setCustomLogger(callback: (log: LogMessage) => void): void {
-  globalLogger = new CustomLogger(callback)
+  globalLogger = new CustomLogger(callback);
 }
 
 /**
  * Convenience methods for logging
  */
 export const logger = {
-  debug: (message: string, context?: string, data?: any) =>
+  debug: (message: string, context?: string, data?: unknown) =>
     getLogger().debug(message, context, data),
-  info: (message: string, context?: string, data?: any) =>
+  info: (message: string, context?: string, data?: unknown) =>
     getLogger().info(message, context, data),
-  warn: (message: string, context?: string, data?: any) =>
+  warn: (message: string, context?: string, data?: unknown) =>
     getLogger().warn(message, context, data),
-  error: (message: string, context?: string, data?: any) =>
-    getLogger().error(message, context, data)
-}
+  error: (message: string, context?: string, data?: unknown) =>
+    getLogger().error(message, context, data),
+};

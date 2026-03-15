@@ -11,5 +11,5 @@ export {
   PageError,
   PDFGenerationError,
   CompressionError,
-  EncryptionError
-} from './PDFErrors'
+  EncryptionError,
+} from './PDFErrors';

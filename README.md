@@ -9,7 +9,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D14-green.svg)](https://nodejs.org/)
 [![Browser](https://img.shields.io/badge/Browser-Compatible-success.svg)](BROWSER.md)
-[![Tests](https://img.shields.io/badge/tests-268%20passing-brightgreen.svg)](https://github.com/pdfstudio-dev/pdfstudio)
+[![Tests](https://img.shields.io/badge/tests-684%20passing-brightgreen.svg)](https://github.com/pdfstudio-dev/pdfstudio)
+[![ESLint](https://img.shields.io/badge/ESLint-0%20errors-brightgreen.svg)](https://eslint.org/)
+[![Prettier](https://img.shields.io/badge/code%20style-prettier-ff69b4.svg)](https://prettier.io/)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Browser Support](#-browser-support) • [Examples](#-examples) • [API](#-api-reference) • [Documentation](#-documentation)
 
@@ -58,7 +60,7 @@ doc.save('sales-report.pdf')
 
 ### Key Differentiators
 
-| Feature | PDFStudio v0.3.3 | PDFKit | jsPDF | pdfmake |
+| Feature | PDFStudio v0.3.4 | PDFKit | jsPDF | pdfmake |
 |---------|------------------|--------|-------|---------|
 | **Browser Support** | ✅ **Native** | ❌ Node only | ✅ | ✅ |
 | **Node.js Support** | ✅ | ✅ | ⚠️ Limited | ✅ |
@@ -1461,7 +1463,7 @@ cd pdfstudio
 npm install
 
 # Run tests
-npm test                # Run all 180 tests
+npm test                # Run all 684 tests
 
 # Build
 npm run build           # Compile TypeScript
@@ -1469,9 +1471,17 @@ npm run build           # Compile TypeScript
 # Development
 npm run dev             # Watch mode
 
+# Code quality
+npm run lint            # Run ESLint
+npm run lint:fix        # Auto-fix lint issues
+npm run format          # Format with Prettier
+npm run format:check    # Check formatting
+
 # Run examples
 npm run examples        # Generate all example PDFs
 ```
+
+> **Note:** Pre-commit hooks (husky + lint-staged) automatically run ESLint and Prettier on staged files.
 
 ---
 

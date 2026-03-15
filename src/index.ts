@@ -3,11 +3,11 @@
  * @packageDocumentation
  */
 
-export { PDFDocument } from './core/PDFDocument'
+export { PDFDocument } from './core/PDFDocument';
 
 // Configuration
-export { configure, resetConfig } from './config/defaults'
-export type { PDFStudioConfig } from './config/defaults'
+export { configure, resetConfig } from './config/defaults';
+export type { PDFStudioConfig } from './config/defaults';
 
 export {
   // Chart types
@@ -100,13 +100,13 @@ export {
   CellVAlign,
 
   // Constants
-  PAGE_SIZES
-} from './types'
+  PAGE_SIZES,
+} from './types';
 
 // Unicode utilities
 export {
   substituteUnicode,
   detectUnsupportedChars,
   getSubstitution,
-  UNICODE_SUBSTITUTIONS
-} from './utils/unicode-substitution'
+  UNICODE_SUBSTITUTIONS,
+} from './utils/unicode-substitution';

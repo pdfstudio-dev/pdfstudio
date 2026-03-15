@@ -1,14 +1,76 @@
-import { PDFWriter } from './PDFWriter'
-import { PDFDocumentOptions, PAGE_SIZES, BarChartOptions, GroupedBarChartOptions, StackedBarChartOptions, LineChartOptions, MultiLineChartOptions, PieChartOptions, DonutChartOptions, PageNumberOptions, PageSize, Margins, DocumentInfo, PageLayout, PDFSecurityOptions, ImageOptions, TextOptions, TableOptions, CircleOptions, EllipseOptions, PolygonOptions, ArcOptions, SectorOptions, HeaderFooterOptions, BookmarkOptions, FormOptions, FormField, SignatureFieldOptions, Annotation, TextAnnotation, HighlightAnnotation, UnderlineAnnotation, StrikeOutAnnotation, SquareAnnotation, CircleAnnotation as CircleAnnotationType, FreeTextAnnotation, StampAnnotation, InkAnnotation, Watermark, TextWatermark, ImageWatermark, Link, ExternalLink, InternalLink, PageRotation, ExtendedMetadata, FileAttachment, FileAttachmentAnnotation, CustomFont, PDFBaseFont, Gradient, TilingPatternOptions, FormXObjectOptions, FormXObjectPlacementOptions, LayerOptions, TextOutlineOptions, TextRenderingMode, Color, QRCodeOptions, ListOptions } from '../types'
-import { BarChart } from '../charts/BarChart'
-import { GroupedBarChart } from '../charts/GroupedBarChart'
-import { StackedBarChart } from '../charts/StackedBarChart'
-import { LineChart } from '../charts/LineChart'
-import { MultiLineChart } from '../charts/MultiLineChart'
-import { PieChart } from '../charts/PieChart'
-import { Table } from '../tables/Table'
-import { ImageParser } from '../images/ImageParser'
-import { Writable } from 'stream'
+import { PDFWriter } from './PDFWriter';
+import {
+  PDFDocumentOptions,
+  PAGE_SIZES,
+  BarChartOptions,
+  GroupedBarChartOptions,
+  StackedBarChartOptions,
+  LineChartOptions,
+  MultiLineChartOptions,
+  PieChartOptions,
+  DonutChartOptions,
+  PageNumberOptions,
+  PageSize,
+  Margins,
+  DocumentInfo,
+  PageLayout,
+  PDFSecurityOptions,
+  ImageOptions,
+  TextOptions,
+  TableOptions,
+  CircleOptions,
+  EllipseOptions,
+  PolygonOptions,
+  ArcOptions,
+  SectorOptions,
+  HeaderFooterOptions,
+  BookmarkOptions,
+  FormOptions,
+  FormField,
+  SignatureFieldOptions,
+  Annotation,
+  TextAnnotation,
+  HighlightAnnotation,
+  UnderlineAnnotation,
+  StrikeOutAnnotation,
+  SquareAnnotation,
+  CircleAnnotation as CircleAnnotationType,
+  FreeTextAnnotation,
+  StampAnnotation,
+  InkAnnotation,
+  Watermark,
+  TextWatermark,
+  ImageWatermark,
+  Link,
+  ExternalLink,
+  InternalLink,
+  PageRotation,
+  ExtendedMetadata,
+  FileAttachment,
+  FileAttachmentAnnotation,
+  CustomFont,
+  PDFBaseFont,
+  Gradient,
+  TilingPatternOptions,
+  FormXObjectOptions,
+  FormXObjectPlacementOptions,
+  LayerOptions,
+  TextOutlineOptions,
+  TextRenderingMode,
+  Color,
+  QRCodeOptions,
+  ListOptions,
+} from '../types';
+import { BarChart } from '../charts/BarChart';
+import { GroupedBarChart } from '../charts/GroupedBarChart';
+import { StackedBarChart } from '../charts/StackedBarChart';
+import { LineChart } from '../charts/LineChart';
+import { MultiLineChart } from '../charts/MultiLineChart';
+import { PieChart } from '../charts/PieChart';
+import { Table } from '../tables/Table';
+import { ImageParser } from '../images/ImageParser';
+import { Writable } from 'stream';
+import { PDFGenerationError } from '../errors';
 import {
   validateRectangle,
   validateCoordinates,
@@ -18,79 +80,93 @@ import {
   validatePageIndex,
   validateRotation,
   validateOpacity,
-  validateNonEmptyString
-} from '../utils/validation'
+  validateNonEmptyString,
+} from '../utils/validation';
 
 /**
  * PDFDocument - Main API class with multi-page support
  */
 export class PDFDocument {
-  private writer: PDFWriter
-  private width: number
-  private height: number
-  private margins: Margins
-  private outputStream: Writable | null = null
-  private isEnded: boolean = false
+  private writer: PDFWriter;
+  private width: number;
+  private height: number;
+  private margins: Margins;
+  private outputStream: Writable | null = null;
+  private isEnded: boolean = false;
 
   constructor(options: PDFDocumentOptions = {}) {
     // Determine page size
-    const size = options.size || 'A4'
-    let [width, height] = typeof size === 'string' ? PAGE_SIZES[size] : size
+    const size = options.size || 'A4';
+    let [width, height] = typeof size === 'string' ? PAGE_SIZES[size] : size;
 
     // Apply layout (swap width/height if landscape)
-    const layout = options.layout || 'portrait'
+    const layout = options.layout || 'portrait';
     if (layout === 'landscape') {
-      [width, height] = [height, width]  // Swap dimensions
+      [width, height] = [height, width]; // Swap dimensions
     }
 
-    this.width = width
-    this.height = height
+    this.width = width;
+    this.height = height;
 
     // Determine if we should create first page automatically
-    const autoFirstPage = options.autoFirstPage !== undefined ? options.autoFirstPage : true
+    const autoFirstPage = options.autoFirstPage !== undefined ? options.autoFirstPage : true;
 
     // Get PDF version
-    const pdfVersion = options.pdfVersion || '1.4'
+    const pdfVersion = options.pdfVersion || '1.4';
 
     // Get security options
-    const security = options.security
+    const security = options.security;
 
     // Get header/footer options
-    const headerFooter = options.headerFooter
+    const headerFooter = options.headerFooter;
 
     // Get bookmarks
-    const bookmarks = options.bookmarks
+    const bookmarks = options.bookmarks;
 
     // Get form options
-    const formOptions = options.form
+    const formOptions = options.form;
 
     // Get signature fields
-    const signatureFields = options.signature
+    const signatureFields = options.signature;
 
     // Get PDF/A options
-    const pdfAOptions = options.pdfA
+    const pdfAOptions = options.pdfA;
 
     // Get compression options
-    const compressionOptions = options.compression
+    const compressionOptions = options.compression;
 
-    this.writer = new PDFWriter(width, height, options.font, options.info, pdfVersion, autoFirstPage, security, headerFooter, bookmarks, formOptions, signatureFields, pdfAOptions, compressionOptions)
+    this.writer = new PDFWriter(
+      width,
+      height,
+      options.font,
+      options.info,
+      pdfVersion,
+      autoFirstPage,
+      security,
+      headerFooter,
+      bookmarks,
+      formOptions,
+      signatureFields,
+      pdfAOptions,
+      compressionOptions
+    );
 
     // Set margins
-    this.margins = this.normalizeMargins(options.margins || 0)
+    this.margins = this.normalizeMargins(options.margins || 0);
 
     // Set page numbering if provided
     if (options.pageNumbers) {
-      this.writer.setPageNumberOptions(options.pageNumbers)
+      this.writer.setPageNumberOptions(options.pageNumbers);
     }
 
     // Set header/footer if provided
     if (options.headerFooter) {
-      this.writer.setHeaderFooterOptions(options.headerFooter)
+      this.writer.setHeaderFooterOptions(options.headerFooter);
     }
 
     // Set bookmarks if provided
     if (options.bookmarks) {
-      this.writer.setBookmarks(options.bookmarks)
+      this.writer.setBookmarks(options.bookmarks);
     }
   }
 
@@ -103,10 +179,10 @@ export class PDFDocument {
         top: margins,
         right: margins,
         bottom: margins,
-        left: margins
-      }
+        left: margins,
+      };
     }
-    return margins
+    return margins;
   }
 
   /**
@@ -114,50 +190,50 @@ export class PDFDocument {
    */
   addPage(size?: PageSize | [number, number]): this {
     if (size) {
-      const [width, height] = typeof size === 'string' ? PAGE_SIZES[size] : size
-      this.writer.addPage(width, height)
+      const [width, height] = typeof size === 'string' ? PAGE_SIZES[size] : size;
+      this.writer.addPage(width, height);
     } else {
-      this.writer.addPage(this.width, this.height)
+      this.writer.addPage(this.width, this.height);
     }
-    return this
+    return this;
   }
 
   /**
    * Switch to a specific page (0-indexed)
    */
   switchToPage(pageIndex: number): this {
-    this.writer.switchToPage(pageIndex)
-    return this
+    this.writer.switchToPage(pageIndex);
+    return this;
   }
 
   /**
    * Get current page number (1-indexed)
    */
   getCurrentPageNumber(): number {
-    return this.writer.getCurrentPageNumber()
+    return this.writer.getCurrentPageNumber();
   }
 
   /**
    * Get total number of pages
    */
   getPageCount(): number {
-    return this.writer.getPageCount()
+    return this.writer.getPageCount();
   }
 
   /**
    * Configure page numbering
    */
   setPageNumbers(options: PageNumberOptions | null): this {
-    this.writer.setPageNumberOptions(options)
-    return this
+    this.writer.setPageNumberOptions(options);
+    return this;
   }
 
   /**
    * Configure headers and footers
    */
   setHeaderFooter(options: HeaderFooterOptions | null): this {
-    this.writer.setHeaderFooterOptions(options)
-    return this
+    this.writer.setHeaderFooterOptions(options);
+    return this;
   }
 
   /**
@@ -187,8 +263,8 @@ export class PDFDocument {
    * ```
    */
   setBookmarks(bookmarks: BookmarkOptions[]): this {
-    this.writer.setBookmarks(bookmarks)
-    return this
+    this.writer.setBookmarks(bookmarks);
+    return this;
   }
 
   /**
@@ -205,8 +281,8 @@ export class PDFDocument {
    * ```
    */
   addBookmark(bookmark: BookmarkOptions): this {
-    this.writer.addBookmark(bookmark)
-    return this
+    this.writer.addBookmark(bookmark);
+    return this;
   }
 
   /**
@@ -232,177 +308,177 @@ export class PDFDocument {
     title: string,
     page?: number,
     options?: {
-      color?: Color
-      bold?: boolean
-      italic?: boolean
-      children?: BookmarkOptions[]
-      open?: boolean
+      color?: Color;
+      bold?: boolean;
+      italic?: boolean;
+      children?: BookmarkOptions[];
+      open?: boolean;
     }
   ): this {
-    const currentPage = page !== undefined ? page : this.writer['currentPageIndex']
+    const currentPage = page !== undefined ? page : this.writer['currentPageIndex'];
 
     this.writer.addBookmark({
       title,
       destination: {
         page: currentPage,
         fit: 'FitH',
-        y: 750  // Top of page
+        y: 750, // Top of page
       },
-      ...options
-    })
-    return this
+      ...options,
+    });
+    return this;
   }
 
   /**
    * Set form configuration
    */
   setForm(options: FormOptions): this {
-    this.writer.setFormOptions(options)
-    return this
+    this.writer.setFormOptions(options);
+    return this;
   }
 
   /**
    * Add a form field
    */
   addFormField(field: FormField): this {
-    this.writer.addFormField(field)
-    return this
+    this.writer.addFormField(field);
+    return this;
   }
 
   /**
    * Add a signature field
    */
   addSignatureField(field: SignatureFieldOptions): this {
-    this.writer.addSignatureField(field)
-    return this
+    this.writer.addSignatureField(field);
+    return this;
   }
 
   /**
    * Add an annotation to the document
    */
   addAnnotation(annotation: Annotation): this {
-    this.writer.addAnnotation(annotation)
-    return this
+    this.writer.addAnnotation(annotation);
+    return this;
   }
 
   /**
    * Add a text annotation (sticky note)
    */
   addNote(options: Omit<TextAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'text' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'text' });
+    return this;
   }
 
   /**
    * Add a highlight annotation
    */
   addHighlight(options: Omit<HighlightAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'highlight' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'highlight' });
+    return this;
   }
 
   /**
    * Add an underline annotation
    */
   addUnderline(options: Omit<UnderlineAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'underline' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'underline' });
+    return this;
   }
 
   /**
    * Add a strikeout annotation
    */
   addStrikeOut(options: Omit<StrikeOutAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'strikeout' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'strikeout' });
+    return this;
   }
 
   /**
    * Add a square annotation
    */
   addSquareAnnotation(options: Omit<SquareAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'square' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'square' });
+    return this;
   }
 
   /**
    * Add a circle annotation
    */
   addCircleAnnotation(options: Omit<CircleAnnotationType, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'circle' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'circle' });
+    return this;
   }
 
   /**
    * Add a free text annotation
    */
   addFreeText(options: Omit<FreeTextAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'freetext' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'freetext' });
+    return this;
   }
 
   /**
    * Add a stamp annotation
    */
   addStamp(options: Omit<StampAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'stamp' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'stamp' });
+    return this;
   }
 
   /**
    * Add an ink annotation (freehand drawing)
    */
   addInk(options: Omit<InkAnnotation, 'type'>): this {
-    this.writer.addAnnotation({ ...options, type: 'ink' })
-    return this
+    this.writer.addAnnotation({ ...options, type: 'ink' });
+    return this;
   }
 
   /**
    * Add a watermark to the document
    */
   addWatermark(watermark: Watermark): this {
-    this.writer.addWatermark(watermark)
-    return this
+    this.writer.addWatermark(watermark);
+    return this;
   }
 
   /**
    * Add a text watermark
    */
   addTextWatermark(options: Omit<TextWatermark, 'type'>): this {
-    this.writer.addWatermark({ ...options, type: 'text' })
-    return this
+    this.writer.addWatermark({ ...options, type: 'text' });
+    return this;
   }
 
   /**
    * Add an image watermark
    */
   addImageWatermark(options: Omit<ImageWatermark, 'type'>): this {
-    this.writer.addWatermark({ ...options, type: 'image' })
-    return this
+    this.writer.addWatermark({ ...options, type: 'image' });
+    return this;
   }
 
   /**
    * Add a hyperlink
    */
   addLink(link: Link): this {
-    this.writer.addLink(link)
-    return this
+    this.writer.addLink(link);
+    return this;
   }
 
   /**
    * Add an external hyperlink (URL)
    */
   addExternalLink(options: Omit<ExternalLink, 'type'>): this {
-    this.writer.addLink({ ...options, type: 'url' })
-    return this
+    this.writer.addLink({ ...options, type: 'url' });
+    return this;
   }
 
   /**
    * Add an internal hyperlink (page)
    */
   addInternalLink(options: Omit<InternalLink, 'type'>): this {
-    this.writer.addLink({ ...options, type: 'page' })
-    return this
+    this.writer.addLink({ ...options, type: 'page' });
+    return this;
   }
 
   /**
@@ -411,10 +487,10 @@ export class PDFDocument {
    * @param rotation - Rotation angle in degrees (0, 90, 180, 270)
    */
   rotatePage(pageIndex: number, rotation: PageRotation): this {
-    validatePageIndex(pageIndex, this.writer.getPageCount())
-    validateRotation(rotation)
-    this.writer.rotatePage(pageIndex, rotation)
-    return this
+    validatePageIndex(pageIndex, this.writer.getPageCount());
+    validateRotation(rotation);
+    this.writer.rotatePage(pageIndex, rotation);
+    return this;
   }
 
   /**
@@ -422,9 +498,9 @@ export class PDFDocument {
    * @param rotation - Rotation angle in degrees (0, 90, 180, 270)
    */
   rotateCurrentPage(rotation: PageRotation): this {
-    validateRotation(rotation)
-    this.writer.rotateCurrentPage(rotation)
-    return this
+    validateRotation(rotation);
+    this.writer.rotateCurrentPage(rotation);
+    return this;
   }
 
   /**
@@ -433,7 +509,7 @@ export class PDFDocument {
    * @returns Index of the new duplicated page
    */
   duplicatePage(pageIndex: number): number {
-    return this.writer.duplicatePage(pageIndex)
+    return this.writer.duplicatePage(pageIndex);
   }
 
   /**
@@ -446,8 +522,8 @@ export class PDFDocument {
    * doc.reorderPages([1, 2, 0])
    */
   reorderPages(newOrder: number[]): this {
-    this.writer.reorderPages(newOrder)
-    return this
+    this.writer.reorderPages(newOrder);
+    return this;
   }
 
   /**
@@ -455,8 +531,8 @@ export class PDFDocument {
    * @param pageIndex - Index of page to delete (0-indexed)
    */
   deletePage(pageIndex: number): this {
-    this.writer.deletePage(pageIndex)
-    return this
+    this.writer.deletePage(pageIndex);
+    return this;
   }
 
   /**
@@ -472,8 +548,8 @@ export class PDFDocument {
    *    })
    */
   enableXMPMetadata(): this {
-    this.writer.enableXMP()
-    return this
+    this.writer.enableXMP();
+    return this;
   }
 
   /**
@@ -493,8 +569,8 @@ export class PDFDocument {
    * })
    */
   setExtendedMetadata(metadata: ExtendedMetadata): this {
-    this.writer.setExtendedMetadata(metadata)
-    return this
+    this.writer.setExtendedMetadata(metadata);
+    return this;
   }
 
   /**
@@ -508,8 +584,8 @@ export class PDFDocument {
    * })
    */
   updateInfo(info: Partial<DocumentInfo>): this {
-    this.writer.updateInfo(info)
-    return this
+    this.writer.updateInfo(info);
+    return this;
   }
 
   /**
@@ -525,8 +601,8 @@ export class PDFDocument {
    * })
    */
   attachFile(attachment: FileAttachment): this {
-    this.writer.addAttachment(attachment)
-    return this
+    this.writer.addAttachment(attachment);
+    return this;
   }
 
   /**
@@ -544,8 +620,8 @@ export class PDFDocument {
    * })
    */
   addFileAnnotation(annotation: FileAttachmentAnnotation): this {
-    this.writer.addFileAttachmentAnnotation(annotation)
-    return this
+    this.writer.addFileAttachmentAnnotation(annotation);
+    return this;
   }
 
   /**
@@ -559,8 +635,8 @@ export class PDFDocument {
    * })
    */
   async registerFont(customFont: CustomFont): Promise<this> {
-    await this.writer.registerCustomFont(customFont)
-    return this
+    await this.writer.registerCustomFont(customFont);
+    return this;
   }
 
   /**
@@ -572,8 +648,8 @@ export class PDFDocument {
    * doc.text('This text uses MyFont', 100, 700, 16)
    */
   useFont(fontName: string): this {
-    this.writer.useCustomFont(fontName)
-    return this
+    this.writer.useCustomFont(fontName);
+    return this;
   }
 
   /**
@@ -584,186 +660,192 @@ export class PDFDocument {
    * doc.text('Back to standard font', 100, 650, 14)
    */
   useBaseFont(baseFont: PDFBaseFont): this {
-    this.writer.useBaseFont(baseFont)
-    return this
+    this.writer.useBaseFont(baseFont);
+    return this;
   }
 
   /**
    * Get current margins
    */
   getMargins(): Margins {
-    return { ...this.margins }
+    return { ...this.margins };
   }
 
   /**
    * Set new margins
    */
   setMargins(margins: number | Margins): this {
-    this.margins = this.normalizeMargins(margins)
-    return this
+    this.margins = this.normalizeMargins(margins);
+    return this;
   }
 
   /**
    * Get content area width (page width - left margin - right margin)
    */
   getContentWidth(): number {
-    return this.width - this.margins.left - this.margins.right
+    return this.width - this.margins.left - this.margins.right;
   }
 
   /**
    * Get content area height (page height - top margin - bottom margin)
    */
   getContentHeight(): number {
-    return this.height - this.margins.top - this.margins.bottom
+    return this.height - this.margins.top - this.margins.bottom;
   }
 
   /**
    * Get left edge of content area (x position accounting for left margin)
    */
   getContentX(): number {
-    return this.margins.left
+    return this.margins.left;
   }
 
   /**
    * Get top edge of content area (y position accounting for top margin)
    */
   getContentY(): number {
-    return this.height - this.margins.top
+    return this.height - this.margins.top;
   }
 
   /**
    * Get bottom edge of content area (y position accounting for bottom margin)
    */
   getContentBottom(): number {
-    return this.margins.bottom
+    return this.margins.bottom;
   }
 
   /**
    * Get right edge of content area (x position accounting for right margin)
    */
   getContentRight(): number {
-    return this.width - this.margins.right
+    return this.width - this.margins.right;
   }
 
   /**
    * Get page width
    */
   getPageWidth(): number {
-    return this.width
+    return this.width;
   }
 
   /**
    * Get page height
    */
   getPageHeight(): number {
-    return this.height
+    return this.height;
   }
 
   /**
    * Create a bar chart
    */
   barChart(options: BarChartOptions): this {
-    const chart = new BarChart(this.writer, options)
-    chart.render()
-    return this
+    const chart = new BarChart(this.writer, options);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a grouped bar chart
    */
   groupedBarChart(options: GroupedBarChartOptions): this {
-    const chart = new GroupedBarChart(this.writer, options)
-    chart.render()
-    return this
+    const chart = new GroupedBarChart(this.writer, options);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a stacked bar chart
    */
   stackedBarChart(options: StackedBarChartOptions): this {
-    const chart = new StackedBarChart(this.writer, options)
-    chart.render()
-    return this
+    const chart = new StackedBarChart(this.writer, options);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a line chart (single line)
    */
   lineChart(options: LineChartOptions): this {
-    const chart = new LineChart(this.writer, options)
-    chart.render()
-    return this
+    const chart = new LineChart(this.writer, options);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a multi-line chart (multiple series)
    */
   multiLineChart(options: MultiLineChartOptions): this {
-    const chart = new MultiLineChart(this.writer, options)
-    chart.render()
-    return this
+    const chart = new MultiLineChart(this.writer, options);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a pie chart
    */
   pieChart(options: PieChartOptions): this {
-    const chart = new PieChart(this.writer, options, false)
-    chart.render()
-    return this
+    const chart = new PieChart(this.writer, options, false);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a donut chart (pie with hole in center)
    */
   donutChart(options: DonutChartOptions): this {
-    const chart = new PieChart(this.writer, options, true)
-    chart.render()
-    return this
+    const chart = new PieChart(this.writer, options, true);
+    chart.render();
+    return this;
   }
 
   /**
    * Create a table
    */
   table(options: TableOptions): this {
-    const table = new Table(this.writer, options)
-    table.render()
-    return this
+    const table = new Table(this.writer, options);
+    table.render();
+    return this;
   }
 
   /**
    * Add text to the document (simple)
    */
-  text(text: string, x: number, y: number, fontSize?: number): this
+  text(text: string, x: number, y: number, fontSize?: number): this;
   /**
    * Add text with font parameter (PDFKit compatibility)
    */
-  text(text: string, x: number, y: number, fontSize: number, font: PDFBaseFont): this
+  text(text: string, x: number, y: number, fontSize: number, font: PDFBaseFont): this;
   /**
    * Add text with options parameter (PDFKit compatibility)
    */
-  text(text: string, x: number, y: number, fontSize: number, options: TextOptions): this
+  text(text: string, x: number, y: number, fontSize: number, options: TextOptions): this;
   /**
    * Add text with advanced options (word wrap, alignment, etc.)
    */
-  text(text: string, options: TextOptions & { x: number, y: number }): this
-  text(text: string, xOrOptions: number | (TextOptions & { x: number, y: number }), y?: number, fontSize?: number, fontOrOptions?: PDFBaseFont | TextOptions): this {
+  text(text: string, options: TextOptions & { x: number; y: number }): this;
+  text(
+    text: string,
+    xOrOptions: number | (TextOptions & { x: number; y: number }),
+    y?: number,
+    fontSize?: number,
+    fontOrOptions?: PDFBaseFont | TextOptions
+  ): this {
     if (typeof xOrOptions === 'number') {
       // Simple API: text(text, x, y, fontSize?, font? | options?)
-      const x = xOrOptions
+      const x = xOrOptions;
       if (typeof fontOrOptions === 'object') {
         // Options object passed - use default font with options
-        this.writer.text(text, x, y!, fontSize || 12, 'Helvetica', fontOrOptions)
+        this.writer.text(text, x, y!, fontSize || 12, 'Helvetica', fontOrOptions);
       } else {
         // Font string or nothing passed
-        this.writer.text(text, x, y!, fontSize, fontOrOptions)
+        this.writer.text(text, x, y!, fontSize, fontOrOptions);
       }
     } else {
       // Advanced API: text(text, { x, y, fontSize, font, ...options })
-      const { x, y: yPos, fontSize: fs, font: f, ...options } = xOrOptions
-      this.writer.text(text, x, yPos, fs || 12, f || 'Helvetica', options)
+      const { x, y: yPos, fontSize: fs, font: f, ...options } = xOrOptions;
+      this.writer.text(text, x, yPos, fs || 12, f || 'Helvetica', options);
     }
-    return this
+    return this;
   }
 
   /**
@@ -774,7 +856,7 @@ export class PDFDocument {
    * @returns Width in points
    */
   widthOfString(text: string, fontSize?: number, font?: PDFBaseFont): number {
-    return this.writer.widthOfString(text, fontSize, font)
+    return this.writer.widthOfString(text, fontSize, font);
   }
 
   /**
@@ -785,7 +867,7 @@ export class PDFDocument {
    * @returns Height in points
    */
   heightOfString(text: string = '', fontSize?: number, lineGap: number = 0): number {
-    return this.writer.heightOfString(text, fontSize, lineGap)
+    return this.writer.heightOfString(text, fontSize, lineGap);
   }
 
   /**
@@ -805,8 +887,8 @@ export class PDFDocument {
    * ```
    */
   moveDown(lines: number = 1): this {
-    this.writer.moveDown(lines)
-    return this
+    this.writer.moveDown(lines);
+    return this;
   }
 
   /**
@@ -826,8 +908,8 @@ export class PDFDocument {
    * ```
    */
   moveUp(lines: number = 1): this {
-    this.writer.moveUp(lines)
-    return this
+    this.writer.moveUp(lines);
+    return this;
   }
 
   /**
@@ -836,7 +918,7 @@ export class PDFDocument {
    * @returns Current Y coordinate
    */
   getCurrentY(): number {
-    return this.writer.getCurrentY()
+    return this.writer.getCurrentY();
   }
 
   /**
@@ -845,7 +927,7 @@ export class PDFDocument {
    * @returns Current X coordinate
    */
   getCurrentX(): number {
-    return this.writer.getCurrentX()
+    return this.writer.getCurrentX();
   }
 
   /**
@@ -870,17 +952,17 @@ export class PDFDocument {
    * ```
    */
   list(items: string[], x?: number, y?: number, options?: ListOptions): this {
-    this.writer.list(items, x, y, options)
-    return this
+    this.writer.list(items, x, y, options);
+    return this;
   }
 
   /**
    * Draw a rectangle
    */
   rect(x: number, y: number, width: number, height: number): this {
-    validateRectangle(x, y, width, height)
-    this.writer.rect(x, y, width, height)
-    return this
+    validateRectangle(x, y, width, height);
+    this.writer.rect(x, y, width, height);
+    return this;
   }
 
   /**
@@ -904,52 +986,58 @@ export class PDFDocument {
    *    .fillAndStroke('#3498db', '#2c3e50')
    * ```
    */
-  roundedRect(x: number, y: number, width: number, height: number, cornerRadius: number | [number, number]): this {
-    validateRectangle(x, y, width, height)
-    this.writer.roundedRect(x, y, width, height, cornerRadius)
-    return this
+  roundedRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    cornerRadius: number | [number, number]
+  ): this {
+    validateRectangle(x, y, width, height);
+    this.writer.roundedRect(x, y, width, height, cornerRadius);
+    return this;
   }
 
   /**
    * Set fill color (RGB, 0-1 range)
    */
   setFillColor(r: number, g: number, b: number): this {
-    validateRGBColor(r, g, b)
-    this.writer.setFillColor(r, g, b)
-    return this
+    validateRGBColor(r, g, b);
+    this.writer.setFillColor(r, g, b);
+    return this;
   }
 
   /**
    * Set stroke color (RGB, 0-1 range)
    */
   setStrokeColor(r: number, g: number, b: number): this {
-    validateRGBColor(r, g, b)
-    this.writer.setStrokeColor(r, g, b)
-    return this
+    validateRGBColor(r, g, b);
+    this.writer.setStrokeColor(r, g, b);
+    return this;
   }
 
   /**
    * Fill the current path
    */
   fill(): this {
-    this.writer.fill()
-    return this
+    this.writer.fill();
+    return this;
   }
 
   /**
    * Stroke the current path
    */
   stroke(): this {
-    this.writer.stroke()
-    return this
+    this.writer.stroke();
+    return this;
   }
 
   /**
    * Fill and stroke the current path
    */
   fillAndStroke(): this {
-    this.writer.fillAndStroke()
-    return this
+    this.writer.fillAndStroke();
+    return this;
   }
 
   /**
@@ -969,8 +1057,8 @@ export class PDFDocument {
    * ```
    */
   clip(): this {
-    this.writer.clip()
-    return this
+    this.writer.clip();
+    return this;
   }
 
   /**
@@ -1000,8 +1088,8 @@ export class PDFDocument {
    * ```
    */
   clipEvenOdd(): this {
-    this.writer.clipEvenOdd()
-    return this
+    this.writer.clipEvenOdd();
+    return this;
   }
 
   /**
@@ -1022,8 +1110,8 @@ export class PDFDocument {
    * ```
    */
   clipRect(x: number, y: number, width: number, height: number): this {
-    this.writer.clipRect(x, y, width, height)
-    return this
+    this.writer.clipRect(x, y, width, height);
+    return this;
   }
 
   /**
@@ -1049,8 +1137,8 @@ export class PDFDocument {
    * ```
    */
   clipCircle(x: number, y: number, radius: number): this {
-    this.writer.clipCircle(x, y, radius)
-    return this
+    this.writer.clipCircle(x, y, radius);
+    return this;
   }
 
   /**
@@ -1069,8 +1157,8 @@ export class PDFDocument {
    * ```
    */
   clipPath(pathString: string): this {
-    this.writer.clipPath(pathString)
-    return this
+    this.writer.clipPath(pathString);
+    return this;
   }
 
   /**
@@ -1079,25 +1167,25 @@ export class PDFDocument {
    * @param phase - offset into the pattern (default 0)
    */
   dash(pattern: number[], phase: number = 0): this {
-    this.writer.dash(pattern, phase)
-    return this
+    this.writer.dash(pattern, phase);
+    return this;
   }
 
   /**
    * Remove line dash pattern (solid lines)
    */
   undash(): this {
-    this.writer.undash()
-    return this
+    this.writer.undash();
+    return this;
   }
 
   /**
    * Set line width
    */
   setLineWidth(width: number): this {
-    validateLineWidth(width)
-    this.writer.setLineWidth(width)
-    return this
+    validateLineWidth(width);
+    this.writer.setLineWidth(width);
+    return this;
   }
 
   /**
@@ -1113,8 +1201,8 @@ export class PDFDocument {
    * ```
    */
   setLineCap(cap: 0 | 1 | 2): this {
-    this.writer.setLineCap(cap)
-    return this
+    this.writer.setLineCap(cap);
+    return this;
   }
 
   /**
@@ -1131,8 +1219,8 @@ export class PDFDocument {
    * ```
    */
   setLineJoin(join: 0 | 1 | 2): this {
-    this.writer.setLineJoin(join)
-    return this
+    this.writer.setLineJoin(join);
+    return this;
   }
 
   /**
@@ -1155,8 +1243,8 @@ export class PDFDocument {
    * ```
    */
   setDashPattern(pattern: number[], phase?: number): this {
-    this.writer.setDashPattern(pattern, phase)
-    return this
+    this.writer.setDashPattern(pattern, phase);
+    return this;
   }
 
   /**
@@ -1169,8 +1257,8 @@ export class PDFDocument {
    * ```
    */
   setMiterLimit(limit: number): this {
-    this.writer.setMiterLimit(limit)
-    return this
+    this.writer.setMiterLimit(limit);
+    return this;
   }
 
   /**
@@ -1178,24 +1266,24 @@ export class PDFDocument {
    * Use restore() to return to this state
    */
   saveGraphicsState(): this {
-    this.writer.saveGraphicsState()
-    return this
+    this.writer.saveGraphicsState();
+    return this;
   }
 
   /**
    * Restore the previous graphics state
    */
   restoreGraphicsState(): this {
-    this.writer.restoreGraphicsState()
-    return this
+    this.writer.restoreGraphicsState();
+    return this;
   }
 
   /**
    * Apply a transformation matrix
    */
   transform(a: number, b: number, c: number, d: number, e: number, f: number): this {
-    this.writer.transform(a, b, c, d, e, f)
-    return this
+    this.writer.transform(a, b, c, d, e, f);
+    return this;
   }
 
   /**
@@ -1203,8 +1291,8 @@ export class PDFDocument {
    * @param angle - rotation angle in degrees
    */
   rotate(angle: number): this {
-    this.writer.rotate(angle)
-    return this
+    this.writer.rotate(angle);
+    return this;
   }
 
   /**
@@ -1213,8 +1301,8 @@ export class PDFDocument {
    * @param sy - vertical scale factor (defaults to sx)
    */
   scale(sx: number, sy?: number): this {
-    this.writer.scale(sx, sy)
-    return this
+    this.writer.scale(sx, sy);
+    return this;
   }
 
   /**
@@ -1223,145 +1311,155 @@ export class PDFDocument {
    * @param y - vertical translation
    */
   translate(x: number, y: number): this {
-    this.writer.translate(x, y)
-    return this
+    this.writer.translate(x, y);
+    return this;
   }
 
   /**
    * Move to position
    */
   moveTo(x: number, y: number): this {
-    validateCoordinates(x, y)
-    this.writer.moveTo(x, y)
-    return this
+    validateCoordinates(x, y);
+    this.writer.moveTo(x, y);
+    return this;
   }
 
   /**
    * Line to position
    */
   lineTo(x: number, y: number): this {
-    validateCoordinates(x, y)
-    this.writer.lineTo(x, y)
-    return this
+    validateCoordinates(x, y);
+    this.writer.lineTo(x, y);
+    return this;
   }
 
   /**
    * Close the current path
    */
   closePath(): this {
-    this.writer.closePath()
-    return this
+    this.writer.closePath();
+    return this;
   }
 
   /**
    * Add an image to the document
    */
-  async image(source: string | File | Buffer, options?: ImageOptions): Promise<this>
-  async image(source: string | File | Buffer, x?: number, y?: number, options?: ImageOptions): Promise<this>
-  async image(source: string | File | Buffer, xOrOptions?: number | ImageOptions, y?: number, options?: ImageOptions): Promise<this> {
+  async image(source: string | File | Buffer, options?: ImageOptions): Promise<this>;
+  async image(
+    source: string | File | Buffer,
+    x?: number,
+    y?: number,
+    options?: ImageOptions
+  ): Promise<this>;
+  async image(
+    source: string | File | Buffer,
+    xOrOptions?: number | ImageOptions,
+    y?: number,
+    options?: ImageOptions
+  ): Promise<this> {
     // Parse arguments
-    let x: number | undefined
-    let opts: ImageOptions = {}
+    let x: number | undefined;
+    let opts: ImageOptions = {};
 
     if (typeof xOrOptions === 'number') {
-      x = xOrOptions
-      opts = options || {}
+      x = xOrOptions;
+      opts = options || {};
     } else if (xOrOptions) {
-      opts = xOrOptions
-      x = opts.x
-      y = opts.y
+      opts = xOrOptions;
+      x = opts.x;
+      y = opts.y;
     }
 
     // Load image to get dimensions (async now)
-    const imageInfo = await ImageParser.load(source)
+    const imageInfo = await ImageParser.load(source);
 
     // Handle mask if provided
     if (opts.mask) {
-      const maskInfo = await ImageParser.load(opts.mask)
-      imageInfo.maskInfo = maskInfo
-      imageInfo.maskOptions = opts.maskOptions
+      const maskInfo = await ImageParser.load(opts.mask);
+      imageInfo.maskInfo = maskInfo;
+      imageInfo.maskOptions = opts.maskOptions;
     }
 
-    const originalWidth = imageInfo.width
-    const originalHeight = imageInfo.height
+    const originalWidth = imageInfo.width;
+    const originalHeight = imageInfo.height;
 
     // Calculate final dimensions based on options
-    let finalWidth = originalWidth
-    let finalHeight = originalHeight
-    let finalX = x || opts.x || 0
-    let finalY = y || opts.y || 0
+    let finalWidth = originalWidth;
+    let finalHeight = originalHeight;
+    let finalX = x || opts.x || 0;
+    let finalY = y || opts.y || 0;
 
     // Apply scaling modes
     if (opts.scale) {
       // Scale uniformly
-      finalWidth = originalWidth * opts.scale
-      finalHeight = originalHeight * opts.scale
+      finalWidth = originalWidth * opts.scale;
+      finalHeight = originalHeight * opts.scale;
     } else if (opts.width && opts.height) {
       // Explicit dimensions (may distort)
-      finalWidth = opts.width
-      finalHeight = opts.height
+      finalWidth = opts.width;
+      finalHeight = opts.height;
     } else if (opts.width) {
       // Scale to width (maintain aspect ratio)
-      const ratio = opts.width / originalWidth
-      finalWidth = opts.width
-      finalHeight = originalHeight * ratio
+      const ratio = opts.width / originalWidth;
+      finalWidth = opts.width;
+      finalHeight = originalHeight * ratio;
     } else if (opts.height) {
       // Scale to height (maintain aspect ratio)
-      const ratio = opts.height / originalHeight
-      finalWidth = originalWidth * ratio
-      finalHeight = opts.height
+      const ratio = opts.height / originalHeight;
+      finalWidth = originalWidth * ratio;
+      finalHeight = opts.height;
     } else if (opts.fit) {
       // Fit within dimensions (maintain aspect ratio)
-      const [maxWidth, maxHeight] = opts.fit
-      const widthRatio = maxWidth / originalWidth
-      const heightRatio = maxHeight / originalHeight
-      const ratio = Math.min(widthRatio, heightRatio)
-      finalWidth = originalWidth * ratio
-      finalHeight = originalHeight * ratio
+      const [maxWidth, maxHeight] = opts.fit;
+      const widthRatio = maxWidth / originalWidth;
+      const heightRatio = maxHeight / originalHeight;
+      const ratio = Math.min(widthRatio, heightRatio);
+      finalWidth = originalWidth * ratio;
+      finalHeight = originalHeight * ratio;
 
       // Apply alignment
       if (opts.align === 'center') {
-        finalX += (maxWidth - finalWidth) / 2
+        finalX += (maxWidth - finalWidth) / 2;
       } else if (opts.align === 'right') {
-        finalX += maxWidth - finalWidth
+        finalX += maxWidth - finalWidth;
       }
 
       if (opts.valign === 'center') {
-        finalY += (maxHeight - finalHeight) / 2
+        finalY += (maxHeight - finalHeight) / 2;
       } else if (opts.valign === 'bottom') {
-        finalY += maxHeight - finalHeight
+        finalY += maxHeight - finalHeight;
       }
     } else if (opts.cover) {
       // Cover dimensions (maintain aspect ratio, may crop)
-      const [coverWidth, coverHeight] = opts.cover
-      const widthRatio = coverWidth / originalWidth
-      const heightRatio = coverHeight / originalHeight
-      const ratio = Math.max(widthRatio, heightRatio)
-      finalWidth = originalWidth * ratio
-      finalHeight = originalHeight * ratio
+      const [coverWidth, coverHeight] = opts.cover;
+      const widthRatio = coverWidth / originalWidth;
+      const heightRatio = coverHeight / originalHeight;
+      const ratio = Math.max(widthRatio, heightRatio);
+      finalWidth = originalWidth * ratio;
+      finalHeight = originalHeight * ratio;
 
       // Apply alignment for cropping
       if (opts.align === 'center') {
-        finalX += (coverWidth - finalWidth) / 2
+        finalX += (coverWidth - finalWidth) / 2;
       } else if (opts.align === 'right') {
-        finalX += coverWidth - finalWidth
+        finalX += coverWidth - finalWidth;
       }
 
       if (opts.valign === 'center') {
-        finalY += (coverHeight - finalHeight) / 2
+        finalY += (coverHeight - finalHeight) / 2;
       } else if (opts.valign === 'bottom') {
-        finalY += coverHeight - finalHeight
+        finalY += coverHeight - finalHeight;
       }
     }
 
     // Embed the image and get its name
     // Use embedImageInfo instead of embedImage to preserve mask information
-    const imageName = this.writer.embedImageInfo(imageInfo)
+    const imageName = this.writer.embedImageInfo(imageInfo);
 
     // Draw the image
-    this.writer.drawImage(imageName, finalX, finalY, finalWidth, finalHeight)
+    this.writer.drawImage(imageName, finalX, finalY, finalWidth, finalHeight);
 
-    return this
+    return this;
   }
 
   /**
@@ -1394,72 +1492,79 @@ export class PDFDocument {
    * })
    */
   async qrCode(options: QRCodeOptions): Promise<this> {
-    await this.writer.qrCode(options)
-    return this
+    await this.writer.qrCode(options);
+    return this;
   }
 
   /**
    * Draw a circle
    */
   circle(options: CircleOptions): this {
-    this.writer.circle(options)
-    return this
+    this.writer.circle(options);
+    return this;
   }
 
   /**
    * Draw an ellipse
    */
   ellipse(options: EllipseOptions): this {
-    this.writer.ellipse(options)
-    return this
+    this.writer.ellipse(options);
+    return this;
   }
 
   /**
    * Draw a regular polygon (triangle, hexagon, etc.)
    */
   polygon(options: PolygonOptions): this {
-    this.writer.polygon(options)
-    return this
+    this.writer.polygon(options);
+    return this;
   }
 
   /**
    * Draw an arc (curved line)
    */
   arc(options: ArcOptions): this {
-    this.writer.arc(options)
-    return this
+    this.writer.arc(options);
+    return this;
   }
 
   /**
    * Draw a sector (pie slice)
    */
   sector(options: SectorOptions): this {
-    this.writer.sector(options)
-    return this
+    this.writer.sector(options);
+    return this;
   }
 
   /**
    * Draw a cubic Bezier curve to the specified point
    */
   curveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): this {
-    this.writer.curveTo(cp1x, cp1y, cp2x, cp2y, x, y)
-    return this
+    this.writer.curveTo(cp1x, cp1y, cp2x, cp2y, x, y);
+    return this;
   }
 
   /**
    * Draw a cubic Bezier curve (alias for curveTo, compatible with HTML5 Canvas API)
    */
-  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): this {
-    this.writer.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)
-    return this
+  bezierCurveTo(
+    cp1x: number,
+    cp1y: number,
+    cp2x: number,
+    cp2y: number,
+    x: number,
+    y: number
+  ): this {
+    this.writer.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y);
+    return this;
   }
 
   /**
    * Draw a quadratic Bezier curve to the specified point
    */
   quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): this {
-    this.writer.quadraticCurveTo(cpx, cpy, x, y)
-    return this
+    this.writer.quadraticCurveTo(cpx, cpy, x, y);
+    return this;
   }
 
   /**
@@ -1472,8 +1577,8 @@ export class PDFDocument {
    * ```
    */
   path(pathString: string): this {
-    this.writer.path(pathString)
-    return this
+    this.writer.path(pathString);
+    return this;
   }
 
   /**
@@ -1506,8 +1611,8 @@ export class PDFDocument {
    * ```
    */
   fillWithGradient(gradient: Gradient): this {
-    this.writer.fillWithGradient(gradient)
-    return this
+    this.writer.fillWithGradient(gradient);
+    return this;
   }
 
   /**
@@ -1530,8 +1635,8 @@ export class PDFDocument {
    * ```
    */
   rectWithGradient(x: number, y: number, width: number, height: number, gradient: Gradient): this {
-    this.writer.rectWithGradient(x, y, width, height, gradient)
-    return this
+    this.writer.rectWithGradient(x, y, width, height, gradient);
+    return this;
   }
 
   /**
@@ -1565,8 +1670,8 @@ export class PDFDocument {
    * ```
    */
   fillWithPattern(pattern: TilingPatternOptions): this {
-    this.writer.fillWithPattern(pattern)
-    return this
+    this.writer.fillWithPattern(pattern);
+    return this;
   }
 
   /**
@@ -1590,9 +1695,15 @@ export class PDFDocument {
    * })
    * ```
    */
-  rectWithPattern(x: number, y: number, width: number, height: number, pattern: TilingPatternOptions): this {
-    this.writer.rectWithPattern(x, y, width, height, pattern)
-    return this
+  rectWithPattern(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    pattern: TilingPatternOptions
+  ): this {
+    this.writer.rectWithPattern(x, y, width, height, pattern);
+    return this;
   }
 
   /**
@@ -1625,7 +1736,7 @@ export class PDFDocument {
    * ```
    */
   createFormXObject(options: FormXObjectOptions): string {
-    return this.writer.createFormXObject(options)
+    return this.writer.createFormXObject(options);
   }
 
   /**
@@ -1665,8 +1776,8 @@ export class PDFDocument {
    * ```
    */
   useFormXObject(name: string, placement?: FormXObjectPlacementOptions): this {
-    this.writer.useFormXObject(name, placement)
-    return this
+    this.writer.useFormXObject(name, placement);
+    return this;
   }
 
   /**
@@ -1682,8 +1793,8 @@ export class PDFDocument {
    * ```
    */
   setTextRenderingMode(mode: TextRenderingMode): this {
-    this.writer.setTextRenderingMode(mode)
-    return this
+    this.writer.setTextRenderingMode(mode);
+    return this;
   }
 
   /**
@@ -1703,8 +1814,8 @@ export class PDFDocument {
    * ```
    */
   textOutline(options: TextOutlineOptions): this {
-    this.writer.textOutline(options)
-    return this
+    this.writer.textOutline(options);
+    return this;
   }
 
   /**
@@ -1722,8 +1833,8 @@ export class PDFDocument {
    * ```
    */
   beginTransparencyGroup(isolated?: boolean, knockout?: boolean): this {
-    this.writer.beginTransparencyGroup(isolated, knockout)
-    return this
+    this.writer.beginTransparencyGroup(isolated, knockout);
+    return this;
   }
 
   /**
@@ -1736,8 +1847,8 @@ export class PDFDocument {
    * ```
    */
   endTransparencyGroup(): this {
-    this.writer.endTransparencyGroup()
-    return this
+    this.writer.endTransparencyGroup();
+    return this;
   }
 
   /**
@@ -1772,7 +1883,7 @@ export class PDFDocument {
    * ```
    */
   createLayer(options: LayerOptions): string {
-    return this.writer.createLayer(options)
+    return this.writer.createLayer(options);
   }
 
   /**
@@ -1792,8 +1903,8 @@ export class PDFDocument {
    * ```
    */
   beginLayer(layerName: string): this {
-    this.writer.beginLayer(layerName)
-    return this
+    this.writer.beginLayer(layerName);
+    return this;
   }
 
   /**
@@ -1810,8 +1921,8 @@ export class PDFDocument {
    * ```
    */
   endLayer(): this {
-    this.writer.endLayer()
-    return this
+    this.writer.endLayer();
+    return this;
   }
 
   /**
@@ -1826,8 +1937,8 @@ export class PDFDocument {
    * ```
    */
   blendMode(mode: string): this {
-    this.writer.blendMode(mode)
-    return this
+    this.writer.blendMode(mode);
+    return this;
   }
 
   /**
@@ -1842,23 +1953,23 @@ export class PDFDocument {
    * ```
    */
   opacity(opacity: number): this {
-    validateOpacity(opacity)
-    this.writer.opacity(opacity)
-    return this
+    validateOpacity(opacity);
+    this.writer.opacity(opacity);
+    return this;
   }
 
   /**
    * Save the PDF to a file (Node.js) or trigger download (Browser)
    */
   async save(filepath: string): Promise<void> {
-    await this.writer.save(filepath)
+    await this.writer.save(filepath);
   }
 
   /**
    * Generate the PDF as a Buffer
    */
   async toBuffer(): Promise<Buffer> {
-    return await this.writer.generate()
+    return await this.writer.generate();
   }
 
   /**
@@ -1867,8 +1978,8 @@ export class PDFDocument {
    * @returns this document for chaining
    */
   pipe(stream: Writable): this {
-    this.outputStream = stream
-    return this
+    this.outputStream = stream;
+    return this;
   }
 
   /**
@@ -1877,18 +1988,18 @@ export class PDFDocument {
    */
   async end(): Promise<void> {
     if (this.isEnded) {
-      throw new Error('Document has already been ended')
+      throw new PDFGenerationError('Document has already been ended');
     }
 
-    this.isEnded = true
+    this.isEnded = true;
 
     // Generate the PDF (async now)
-    const pdfBuffer = await this.writer.generate()
+    const pdfBuffer = await this.writer.generate();
 
     // If piped to a stream, write the buffer
     if (this.outputStream) {
-      this.outputStream.write(pdfBuffer)
-      this.outputStream.end()
+      this.outputStream.write(pdfBuffer);
+      this.outputStream.end();
     }
   }
 }

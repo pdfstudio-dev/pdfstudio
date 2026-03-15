@@ -3,43 +3,43 @@
  * Replaces sharp library with cross-platform implementation
  */
 export interface ImageMetadata {
-  width?: number
-  height?: number
-  format?: string
-  channels?: number
+  width?: number;
+  height?: number;
+  format?: string;
+  channels?: number;
 }
 
 export interface ResizeOptions {
-  width?: number
-  height?: number
-  fit?: 'contain' | 'cover' | 'fill'
-  background?: { r: number; g: number; b: number; alpha: number }
+  width?: number;
+  height?: number;
+  fit?: 'contain' | 'cover' | 'fill';
+  background?: { r: number; g: number; b: number; alpha: number };
 }
 
 export interface CompositeOptions {
-  input: Buffer
-  top: number
-  left: number
-  blend?: 'over' | 'dest-in' | 'dest-out'
+  input: Buffer;
+  top: number;
+  left: number;
+  blend?: 'over' | 'dest-in' | 'dest-out';
 }
 
 export interface CreateImageOptions {
-  width: number
-  height: number
-  channels: 3 | 4
-  background: { r: number; g: number; b: number; alpha: number }
+  width: number;
+  height: number;
+  channels: 3 | 4;
+  background: { r: number; g: number; b: number; alpha: number };
 }
 
 export interface IImageProcessor {
   /**
    * Load image from buffer
    */
-  load(buffer: Buffer): IImageInstance
+  load(buffer: Buffer): IImageInstance;
 
   /**
    * Create new blank image
    */
-  create(options: CreateImageOptions): IImageInstance
+  create(options: CreateImageOptions): IImageInstance;
 }
 
 /**
@@ -49,25 +49,25 @@ export interface IImageInstance {
   /**
    * Get image metadata
    */
-  metadata(): Promise<ImageMetadata>
+  metadata(): Promise<ImageMetadata>;
 
   /**
    * Resize image
    */
-  resize(width: number, height: number, options?: ResizeOptions): IImageInstance
+  resize(width: number, height: number, options?: ResizeOptions): IImageInstance;
 
   /**
    * Composite images together
    */
-  composite(composites: CompositeOptions[]): IImageInstance
+  composite(composites: CompositeOptions[]): IImageInstance;
 
   /**
    * Convert to PNG
    */
-  png(): IImageInstance
+  png(): IImageInstance;
 
   /**
    * Get buffer
    */
-  toBuffer(): Promise<Buffer>
+  toBuffer(): Promise<Buffer>;
 }

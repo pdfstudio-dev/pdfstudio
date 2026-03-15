@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2025-03-15
+
+### 🔧 Code Quality & Architecture Refactoring
+
+Major internal quality overhaul — zero breaking changes to the public API.
+
+### ♻️ Refactored
+
+#### generate() Decomposition
+- **Decomposed monolithic `generate()` method** (~2,200 lines) into a clean 38-line orchestrator calling 21 focused private methods
+- Introduced `GenerationContext` interface to manage shared state between PDF build phases
+- Methods extracted: `reserveObjectIds`, `buildInfoObject`, `buildCatalogObject`, `buildPageObjects`, `buildStandardFontObjects`, `buildCustomFontObjects`, `buildExtGStateObjects`, `buildPagesObject`, `buildImageXObjects`, `buildGradientObjects`, `buildTilingPatternObjects`, `buildFormXObjectObjects`, `buildLayerObjects`, `buildLinkAnnotationObjects`, `buildLegacyAnnotationObjects`, `buildAdvancedAnnotationObjects`, `buildBookmarkObjects`, `buildDocumentAttachmentObjects`, `buildAttachmentAnnotationObjects`, `buildFormFieldObjects`, `buildMetadataObjects`, `buildEncryptionObject`
+
+#### Type Safety
+- **Eliminated all 34 `any` types** across the entire codebase
+- Replaced with proper types: `Buffer`, `unknown`, `CanvasImageSource`, `QRCode.QRCodeRenderersOptions`, etc.
+
+#### Error Handling
+- **Replaced all 28 generic `throw new Error()`** with domain-specific custom error classes
+- 9 error classes used consistently: `ValidationError`, `FontError`, `ImageError`, `PageError`, `ChartDataError`, `PDFGenerationError`, `CompressionError`, `EncryptionError`, `PDFStudioError`
+
+#### Type Definitions
+- Split monolithic `src/types.ts` (1,975 lines) into modular files: `types/annotations.ts`, `types/charts.ts`, `types/document.ts`, `types/graphics.ts`, `types/text.ts`
+
+### 🛠️ Tooling
+
+- **ESLint** - Added flat config (v10) with TypeScript-ESLint and Prettier integration — 0 errors
+- **Prettier** - Configured and applied consistent formatting across all 49 source files and 24 test files
+- **husky + lint-staged** - Pre-commit hooks auto-run ESLint fix and Prettier on staged `.ts` files
+- **tsconfig.eslint.json** - Separate TypeScript config for linting (includes tests)
+
+### ✅ Testing
+
+- **113 new tests** added (571 → 684 total)
+- 3 new test suites: `logger.test.ts`, `xmp.test.ts`, `QRCodeGenerator-extended.test.ts`
+- Coverage: statements 59%, branches 44%, functions 65%, lines 59%
+- **24 test suites, 684 tests — all passing**
+
+### 📝 Documentation
+
+- Updated README test badge (268 → 684 passing)
+- Added ESLint and Prettier badges
+- Updated version reference in comparison table
+- Added lint/format scripts and pre-commit hooks note to Development section
+
+### 📊 Impact Summary
+
+| Metric | Before | After |
+|--------|--------|-------|
+| `any` types | 34 | **0** |
+| Generic `throw new Error()` | 28 | **0** |
+| `generate()` method size | ~2,200 lines | **38 lines** |
+| Tests | 571 | **684** (+20%) |
+| Test suites | 21 | **24** |
+| ESLint errors | N/A (no linter) | **0** |
+| Prettier violations | N/A (no formatter) | **0** |
+| Pre-commit hooks | None | **lint-staged** |
+
+### 📊 Stats
+- 82 files changed
+- 17,223 insertions (+)
+- 9,014 deletions (-)
+- 0 breaking changes
+
 ## [0.3.3] - 2025-02-14
 
 ### 📝 Documentation
